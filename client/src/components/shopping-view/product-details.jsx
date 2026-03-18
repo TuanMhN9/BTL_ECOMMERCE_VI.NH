@@ -31,47 +31,62 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
     setRating(getRating);
   }
 
+  const getVariantStock = (size, color) => {
+    if (!productDetails?.variants) return productDetails?.totalStock || 0;
+    const variant = productDetails.variants.find(v => v.size === size && v.color === color);
+    return variant ? variant.stock : 0;
+  };
+
+  const isVariantOutOfStock = (size, color) => {
+    return getVariantStock(size, color) <= 0;
+  };
+
+  const currentVariant = productDetails?.variants?.find(
+    (v) =>
+      v.size === selectedSize &&
+      v.color === selectedColor
+  );
+
   function handleAddToCart(getCurrentProductId, getTotalStock) {
     let getCartItems = cartItems.items || [];
 
+    const isSizeMissing = productDetails?.variants?.some(v => v.size) && selectedSize === "";
+    const isColorMissing = productDetails?.variants?.some(v => v.color) && selectedColor === "";
+
+    if (isSizeMissing || isColorMissing) {
+      toast({
+        title: `Please select ${isSizeMissing && isColorMissing ? "size and color" : isSizeMissing ? "size" : "color"}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const targetStock = currentVariant ? currentVariant.stock : getTotalStock;
+
+    if (targetStock <= 0) {
+      toast({
+        title: "This variant is out of stock",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (getCartItems.length) {
       const indexOfCurrentItem = getCartItems.findIndex(
-        (item) => item.productId === getCurrentProductId
+        (item) => 
+          item.productId === getCurrentProductId && 
+          item.size === selectedSize && item.color === selectedColor
       );
       if (indexOfCurrentItem > -1) {
         const getQuantity = getCartItems[indexOfCurrentItem].quantity;
-        if (getQuantity + 1 > getTotalStock) {
+        if (getQuantity + 1 > targetStock) {
           toast({
-            title: `Only ${getQuantity} quantity can be added for this item`,
+            title: `Only ${targetStock} quantity can be added for this item`,
             variant: "destructive",
           });
-
           return;
         }
       }
-    }
-    if (
-      productDetails?.sizes &&
-      productDetails.sizes.length > 0 &&
-      selectedSize === ""
-    ) {
-      toast({
-        title: "Please select a size",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (
-      productDetails?.colors &&
-      productDetails.colors.length > 0 &&
-      selectedColor === ""
-    ) {
-      toast({
-        title: "Please select a color",
-        variant: "destructive",
-      });
-      return;
     }
 
     dispatch(
@@ -138,7 +153,7 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
   const averageReview =
     reviews && reviews.length > 0
       ? reviews.reduce((sum, reviewItem) => sum + reviewItem.reviewValue, 0) /
-        reviews.length
+      reviews.length
       : 0;
 
   const [mainImage, setMainImage] = useState("");
@@ -151,14 +166,14 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
-      <DialogContent className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:p-12 max-w-[90vw] sm:max-w-[80vw] lg:max-w-[70vw] overflow-y-auto max-h-[90vh]">
+      <DialogContent className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:p-6 md:p-8 max-w-[95vw] sm:max-w-[90vw] lg:max-w-[80vw] xl:max-w-[70vw] overflow-y-auto max-h-[95vh] bg-white">
         <div className="flex flex-col gap-4">
-          <div className="relative overflow-hidden rounded-lg bg-muted aspect-square">
+          <div className="relative overflow-hidden rounded-lg bg-muted aspect-[3/4]">
             <img
               src={mainImage || productDetails?.image}
               alt={productDetails?.title}
               width={600}
-              height={600}
+              height={800}
               className="w-full h-full object-cover transition-all duration-300 ease-in-out"
             />
           </div>
@@ -168,11 +183,10 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
                 <div
                   key={index}
                   onClick={() => setMainImage(imgUrl)}
-                  className={`relative flex-shrink-0 w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 transition-all duration-200 ${
-                    mainImage === imgUrl
+                  className={`relative flex-shrink-0 w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 transition-all duration-200 ${mainImage === imgUrl
                       ? "border-primary scale-105 shadow-md"
                       : "border-transparent opacity-70 hover:opacity-100 hover:border-muted-foreground"
-                  }`}
+                    }`}
                 >
                   <img
                     src={imgUrl}
@@ -186,22 +200,24 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
         </div>
         <div className="">
           <div>
-            <h1 className="text-3xl font-extrabold">{productDetails?.title}</h1>
-            <p className="text-muted-foreground text-xl mb-5 mt-4">
+            <h1 className="text-4xl font-semibold leading-tight">{productDetails?.title}</h1>
+            <p className="text-muted-foreground text-base mb-8 mt-6 leading-relaxed">
               {productDetails?.description}
             </p>
           </div>
           <div className="flex items-center justify-between">
             <p
-              className={`text-3xl font-bold text-primary ${
-                productDetails?.salePrice > 0 ? "line-through" : ""
+              className={`text-2xl font-semibold text-primary ${
+                (currentVariant ? currentVariant.salePrice > 0 : productDetails?.salePrice > 0) 
+                ? "line-through text-muted-foreground text-lg" 
+                : ""
               }`}
             >
-              ${productDetails?.price}
+              ${currentVariant ? currentVariant.price : productDetails?.price}
             </p>
-            {productDetails?.salePrice > 0 ? (
-              <p className="text-2xl font-bold text-muted-foreground">
-                ${productDetails?.salePrice}
+            {(currentVariant ? currentVariant.salePrice > 0 : productDetails?.salePrice > 0) ? (
+              <p className="text-2xl font-semibold text-primary">
+                ${currentVariant ? currentVariant.salePrice : productDetails?.salePrice}
               </p>
             ) : null}
           </div>
@@ -213,64 +229,74 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
               ({averageReview.toFixed(2)})
             </span>
           </div>
-          <div className="flex flex-col gap-4 mt-5">
+          <div className="flex flex-col gap-6 mt-8">
             {productDetails?.sizes && productDetails.sizes.length > 0 ? (
               <div className="flex flex-col gap-2">
-                <span className="text-lg font-bold">Sizes</span>
                 <div className="flex flex-wrap gap-2">
-                  {productDetails.sizes.map((size) => (
-                    <Button
-                      key={size}
-                      variant={selectedSize === size ? "default" : "outline"}
-                      onClick={() => setSelectedSize(size)}
-                      className={`px-4 py-2 transition-all duration-200 ${
-                        selectedSize === size
-                          ? "ring-2 ring-primary ring-offset-2 scale-105"
-                          : "hover:bg-secondary/20"
-                      }`}
-                    >
-                      {size}
-                    </Button>
-                  ))}
+                  {productDetails.sizes.map((size) => {
+                    const isOutOfStock = isVariantOutOfStock(size, selectedColor || productDetails?.colors?.[0] || "");
+                    return (
+                      <Button
+                        key={size}
+                        variant={selectedSize === size ? "default" : "outline"}
+                        onClick={() => !isOutOfStock && setSelectedSize(size)}
+                        disabled={isOutOfStock}
+                        className={`w-10 h-10 flex items-center justify-center text-sm font-medium transition-all duration-200 rounded-none ${
+                          isOutOfStock
+                            ? "line-through opacity-50 cursor-not-allowed"
+                            : selectedSize === size
+                            ? "ring-2 ring-primary ring-offset-2 scale-105"
+                            : "hover:bg-secondary/20"
+                        }`}
+                      >
+                        {size}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
             {productDetails?.colors && productDetails.colors.length > 0 ? (
               <div className="flex flex-col gap-2">
-                <span className="text-lg font-bold">Colors</span>
                 <div className="flex flex-wrap gap-2">
-                  {productDetails.colors.map((color) => (
-                    <Button
-                      key={color}
-                      variant={selectedColor === color ? "default" : "outline"}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-4 py-2 transition-all duration-200 ${
-                        selectedColor === color
-                          ? "ring-2 ring-primary ring-offset-2 scale-105"
-                          : "hover:bg-secondary/20"
-                      }`}
-                    >
-                      {color}
-                    </Button>
-                  ))}
+                  {productDetails.colors.map((color) => {
+                    const isOutOfStock = isVariantOutOfStock(selectedSize || productDetails?.sizes?.[0] || "", color);
+                    return (
+                      <Button
+                        key={color}
+                        variant={selectedColor === color ? "default" : "outline"}
+                        onClick={() => !isOutOfStock && setSelectedColor(color)}
+                        disabled={isOutOfStock}
+                        className={`w-8 h-8 p-1 transition-all duration-200 rounded-none ${
+                          isOutOfStock
+                            ? "line-through opacity-50 cursor-not-allowed"
+                            : selectedColor === color
+                            ? "ring-2 ring-primary ring-offset-2 scale-105"
+                            : "hover:bg-secondary/20"
+                        }`}
+                      >
+                        <div
+                          className={`w-full h-full ${isOutOfStock ? "line-through" : ""}`}
+                          style={{ backgroundColor: color.toLowerCase() }}
+                          title={color}
+                        />
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
           </div>
-          <div className="mt-5 mb-5 flex flex-col gap-3">
-            {productDetails?.totalStock <= 0 ? (
-              <Button className="w-full opacity-60 cursor-not-allowed">
+          <div className="mt-8 mb-8 flex flex-col gap-4">
+            {(selectedSize && selectedColor && currentVariant && currentVariant.stock <= 0) ||
+             (!productDetails?.variants && productDetails?.totalStock <= 0) ? (
+              <Button className="w-full opacity-60 cursor-not-allowed h-12 rounded-none uppercase font-semibold" disabled>
                 Out of Stock
               </Button>
             ) : (
-              <>
+              <div className="flex flex-col gap-2">
                 <Button
-                  className={`w-full py-6 text-lg font-bold transition-all duration-300 ${
-                    (productDetails?.sizes?.length > 0 && !selectedSize) ||
-                    (productDetails?.colors?.length > 0 && !selectedColor)
-                      ? "bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30"
-                      : "bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl"
-                  }`}
+                  className="w-full h-12 text-base font-semibold bg-black hover:bg-gray-800 shadow-none hover:shadow-none transition-all duration-300 rounded-none uppercase"
                   onClick={() =>
                     handleAddToCart(
                       productDetails?._id,
@@ -280,13 +306,12 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
                 >
                   Add to Cart
                 </Button>
-                {((productDetails?.sizes?.length > 0 && !selectedSize) ||
-                  (productDetails?.colors?.length > 0 && !selectedColor)) && (
-                  <p className="text-sm text-destructive font-medium text-center animate-pulse">
-                    Please select your preferred size and color
+                {currentVariant && (
+                  <p className="text-sm text-center text-muted-foreground">
+                    Còn lại {currentVariant.stock} sản phẩm
                   </p>
                 )}
-              </>
+              </div>
             )}
           </div>
           <Separator />

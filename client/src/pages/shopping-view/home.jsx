@@ -169,7 +169,7 @@ function ShoppingHome() {
         </Button>
       </div>
       <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
+        <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           <h2 className="text-3xl font-bold text-center mb-8">
             Shop by category
           </h2>
@@ -192,7 +192,7 @@ function ShoppingHome() {
       </section>
 
       <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
+        <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           <h2 className="text-3xl font-bold text-center mb-8">Shop by Brand</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {brandsWithIcon.map((brandItem) => (
@@ -211,13 +211,13 @@ function ShoppingHome() {
       </section>
 
       <section className="py-12">
-        <div className="container mx-auto px-4">
+        <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           <h2 className="text-3xl font-bold text-center mb-8">
             Feature Products
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {productList && productList.length > 0
-              ? productList.map((productItem) => (
+              ? productList.slice(0, 10).map((productItem) => (
                   <ShoppingProductTile
                     handleGetProductDetails={handleGetProductDetails}
                     product={productItem}
@@ -225,6 +225,11 @@ function ShoppingHome() {
                   />
                 ))
               : null}
+          </div>
+          <div className="flex justify-center mt-8">
+            <Button onClick={() => navigate('/shop/listing')} className="px-6 py-2">
+              All Products
+            </Button>
           </div>
         </div>
       </section>

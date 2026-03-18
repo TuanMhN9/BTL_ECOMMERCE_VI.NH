@@ -30,8 +30,7 @@ const addToCart = async (req, res) => {
     const findCurrentProductIndex = cart.items.findIndex(
       (item) =>
         item.productId.toString() === productId &&
-        item.size === size &&
-        item.color === color
+        item.size === size && item.color === color
     );
 
     let currentCartQuantity = 0;
@@ -39,10 +38,16 @@ const addToCart = async (req, res) => {
       currentCartQuantity = cart.items[findCurrentProductIndex].quantity;
     }
 
-    if (currentCartQuantity + quantity > product.totalStock) {
+    let checkStock = product.totalStock;
+    if (size && color && product.variants && product.variants.length > 0) {
+      const variant = product.variants.find(v => v.size === size && v.color === color);
+      if (variant) checkStock = variant.stock;
+    }
+
+    if (currentCartQuantity + quantity > checkStock) {
       return res.status(400).json({
         success: false,
-        message: `Only ${product.totalStock} items left in stock`,
+        message: `Only ${checkStock} items left in stock`,
       });
     }
 
@@ -98,16 +103,25 @@ const fetchCartItems = async (req, res) => {
       await cart.save();
     }
 
-    const populateCartItems = validItems.map((item) => ({
-      productId: item.productId._id,
-      image: item.productId.image,
-      title: item.productId.title,
-      price: item.productId.price,
-      salePrice: item.productId.salePrice,
-      quantity: item.quantity,
-      size: item.size,
-      color: item.color,
-    }));
+    const populateCartItems = validItems.map((item) => {
+      const product = item.productId;
+      let variant = null;
+      if (item.variantId && product.variants) {
+        variant = product.variants.id(item.variantId);
+      }
+
+      return {
+        productId: product._id,
+        variantId: item.variantId,
+        image: product.image,
+        title: product.title,
+        price: variant ? variant.price : product.price,
+        salePrice: variant ? variant.salePrice : product.salePrice,
+        quantity: item.quantity,
+        size: variant ? variant.size : item.size,
+        color: variant ? variant.color : item.color,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -127,7 +141,7 @@ const fetchCartItems = async (req, res) => {
 
 const updateCartItemQty = async (req, res) => {
   try {
-    const { userId, productId, quantity, size, color } = req.body;
+    const { userId, productId, variantId, quantity, size, color } = req.body;
 
     if (!userId || !productId || quantity <= 0) {
       return res.status(400).json({
@@ -155,8 +169,7 @@ const updateCartItemQty = async (req, res) => {
     const findCurrentProductIndex = cart.items.findIndex(
       (item) =>
         item.productId.toString() === productId &&
-        item.size === size &&
-        item.color === color
+        (variantId ? item.variantId?.toString() === variantId : (item.size === size && item.color === color))
     );
 
     if (findCurrentProductIndex === -1) {
@@ -166,10 +179,16 @@ const updateCartItemQty = async (req, res) => {
       });
     }
 
-    if (quantity > product.totalStock) {
+    let checkStock = product.totalStock;
+    if (variantId && product.variants && product.variants.length > 0) {
+      const variant = product.variants.id(variantId);
+      if (variant) checkStock = variant.stock;
+    }
+
+    if (quantity > checkStock) {
       return res.status(400).json({
         success: false,
-        message: `Only ${product.totalStock} items left in stock`,
+        message: `Only ${checkStock} items left in stock`,
       });
     }
 
@@ -178,19 +197,28 @@ const updateCartItemQty = async (req, res) => {
 
     await cart.populate({
       path: "items.productId",
-      select: "image title price salePrice",
+      select: "image title price salePrice variants",
     });
 
-    const populateCartItems = cart.items.map((item) => ({
-      productId: item.productId ? item.productId._id : null,
-      image: item.productId ? item.productId.image : null,
-      title: item.productId ? item.productId.title : "Product not found",
-      price: item.productId ? item.productId.price : null,
-      salePrice: item.productId ? item.productId.salePrice : null,
-      quantity: item.quantity,
-      size: item.size,
-      color: item.color,
-    }));
+    const populateCartItems = cart.items.map((item) => {
+      const prod = item.productId;
+      let variant = null;
+      if (item.variantId && prod && prod.variants) {
+        variant = prod.variants.id(item.variantId);
+      }
+
+      return {
+        productId: prod ? prod._id : null,
+        variantId: item.variantId,
+        image: prod ? prod.image : null,
+        title: prod ? prod.title : "Product not found",
+        price: variant ? variant.price : (prod ? prod.price : null),
+        salePrice: variant ? variant.salePrice : (prod ? prod.salePrice : null),
+        quantity: item.quantity,
+        size: variant ? variant.size : item.size,
+        color: variant ? variant.color : item.color,
+      };
+    });
 
     res.status(200).json({
       success: true,

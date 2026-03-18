@@ -73,19 +73,26 @@ const capturePayment = async (req, res) => {
 
     // Trừ stock và xóa giỏ hàng
     for (let item of order.cartItems) {
-      let product = await Product.findById(item.productId);
-      if (product) {
-        console.log(`Processing stock for ${product.title}. Current stock: ${product.totalStock}, Ordered: ${item.quantity}`);
-        if (product.totalStock >= item.quantity) {
-          product.totalStock -= item.quantity;
-          console.log(`Stock deduced successfully. New stock: ${product.totalStock}`);
-        } else {
-          console.log(`Warning: Not enough stock for ${product.title}. Setting stock to 0. Available: ${product.totalStock}, Requested: ${item.quantity}`);
-          product.totalStock = 0;
+      if (item.size && item.color) {
+        // Trừ kho variant
+        const product = await Product.findById(item.productId);
+        if (product && product.variants) {
+          const variant = product.variants.find(v => v.size === item.size && v.color === item.color);
+          if (variant && variant.stock >= item.quantity) {
+            variant.stock -= item.quantity;
+            product.totalStock = Math.max(0, product.totalStock - item.quantity);
+            await product.save();
+          } else {
+            console.log(`Warning: Insufficient stock for variant ${item.size} ${item.color} of ${item.title}`);
+          }
         }
-        await product.save();
       } else {
-        console.log(`Error: Product not found for stock update: ${item.productId}`);
+        // Trừ kho bình thường (không có variant)
+        let product = await Product.findById(item.productId);
+        if (product) {
+          product.totalStock = Math.max(0, product.totalStock - item.quantity);
+          await product.save();
+        }
       }
     }
     await Cart.findByIdAndDelete(order.cartId);

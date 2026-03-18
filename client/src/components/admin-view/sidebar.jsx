@@ -6,7 +6,7 @@ import {
   Users,
 } from "lucide-react";
 import { Fragment } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 
 const adminSidebarMenuItems = [
@@ -38,22 +38,31 @@ const adminSidebarMenuItems = [
 
 function MenuItems({ setOpen }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <nav className="mt-8 flex-col flex gap-2">
-      {adminSidebarMenuItems.map((menuItem) => (
-        <div
-          key={menuItem.id}
-          onClick={() => {
-            navigate(menuItem.path);
-            setOpen ? setOpen(false) : null;
-          }}
-          className="flex cursor-pointer text-xl items-center gap-2 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          {menuItem.icon}
-          <span>{menuItem.label}</span>
-        </div>
-      ))}
+      {adminSidebarMenuItems.map((menuItem) => {
+        const isActive = location.pathname === menuItem.path;
+        
+        return (
+          <div
+            key={menuItem.id}
+            onClick={() => {
+              navigate(menuItem.path);
+              setOpen ? setOpen(false) : null;
+            }}
+            className={`flex cursor-pointer text-xl items-center gap-2 rounded-md px-3 py-2 transition-all duration-200 ${
+              isActive 
+                ? "bg-sky-200 text-sky-950 font-bold shadow-sm" 
+                : "text-sky-900 hover:bg-sky-200 hover:text-sky-950"
+            }`}
+          >
+            {menuItem.icon}
+            <span>{menuItem.label}</span>
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -64,10 +73,10 @@ function AdminSideBar({ open, setOpen }) {
   return (
     <Fragment>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-64">
+        <SheetContent side="left" className="w-64 bg-sky-100 text-sky-900 border-sky-200">
           <div className="flex flex-col h-full">
             <SheetHeader className="border-b">
-              <SheetTitle className="flex gap-2 mt-5 mb-5">
+              <SheetTitle className="flex gap-2 mt-5 mb-5 text-sky-900">
                 <ChartNoAxesCombined size={30} />
                 <h1 className="text-2xl font-extrabold">Admin Panel</h1>
               </SheetTitle>
@@ -76,10 +85,10 @@ function AdminSideBar({ open, setOpen }) {
           </div>
         </SheetContent>
       </Sheet>
-      <aside className="hidden w-64 flex-col border-r bg-background p-6 lg:flex">
+      <aside className="hidden w-64 flex-col border-r border-sky-200 bg-sky-100 p-6 lg:flex sticky top-0 h-screen overflow-y-auto shadow-md">
         <div
           onClick={() => navigate("/admin/dashboard")}
-          className="flex cursor-pointer items-center gap-2"
+          className="flex cursor-pointer items-center gap-2 text-sky-900 hover:text-sky-600 transition-colors"
         >
           <ChartNoAxesCombined size={30} />
           <h1 className="text-2xl font-extrabold">Admin Panel</h1>

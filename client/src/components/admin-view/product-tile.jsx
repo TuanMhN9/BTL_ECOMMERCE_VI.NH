@@ -25,14 +25,21 @@ function AdminProductTile({
             Out of Stock
           </Badge>
         ) : null}
+        {product?.variants && product?.variants.length > 0 ? (
+          <Badge
+            variant="secondary"
+            className="absolute top-2 right-2 px-2 py-1 text-xs font-bold uppercase bg-blue-100 text-blue-800"
+          >
+            Biến thể
+          </Badge>
+        ) : null}
       </div>
       <CardContent className="flex-1">
         <h2 className="text-xl font-bold mb-2 mt-2">{product?.title}</h2>
         <div className="flex justify-between items-center mb-2">
           <span
-            className={`${
-              product?.salePrice > 0 ? "line-through" : ""
-            } text-lg font-semibold text-primary`}
+            className={`${product?.salePrice > 0 ? "line-through" : ""
+              } text-lg font-semibold text-primary`}
           >
             ${product?.price}
           </span>
@@ -41,7 +48,13 @@ function AdminProductTile({
           ) : null}
         </div>
         <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-muted-foreground">Stock: {product?.totalStock}</span>
+          <span className="text-sm font-medium text-muted-foreground">
+            Stock: {
+              product?.variants && product?.variants.length > 0 
+                ? product.variants.reduce((sum, v) => sum + Number(v.stock), 0)
+                : product?.totalStock
+            }
+          </span>
         </div>
         <div className="flex flex-col gap-2 mt-2">
           {product?.sizes && product?.sizes.length > 0 ? (

@@ -14,6 +14,15 @@ const ProductSchema = new mongoose.Schema(
     sizes: Array,
     colors: Array,
     averageReview: Number,
+    variants: [
+      {
+        size: String,
+        color: String,
+        stock: Number,
+        price: Number,
+        salePrice: Number,
+      },
+    ],
   },
   { timestamps: true }
 );

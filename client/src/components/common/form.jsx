@@ -34,6 +34,7 @@ function CommonForm({
             id={getControlItem.name}
             type={getControlItem.type}
             value={value}
+            min={getControlItem.min}
             onChange={(event) =>
               setFormData({
                 ...formData,
@@ -146,13 +147,24 @@ function CommonForm({
                 })
               }
               onKeyDown={(event) => {
-                if (event.key === "Enter") {
+                if (event.key === "Enter" || event.key === ",") {
                   event.preventDefault();
                   const val = formData[`${getControlItem.name}_input`] || "";
-                  if (val.trim() !== "" && !tags.includes(val.trim())) {
+                  const newTags = val
+                    .split(",")
+                    .map((v) => v.trim())
+                    .filter((v) => v !== "" && !tags.includes(v));
+                  
+                  if (newTags.length > 0) {
                     setFormData({
                       ...formData,
-                      [getControlItem.name]: [...tags, val.trim()],
+                      [getControlItem.name]: [...tags, ...newTags],
+                      [`${getControlItem.name}_input`]: "",
+                    });
+                  } else if (event.key === "Enter" && val.trim() !== "") {
+                    // Clear if empty or duplicate on Enter
+                    setFormData({
+                      ...formData,
                       [`${getControlItem.name}_input`]: "",
                     });
                   }

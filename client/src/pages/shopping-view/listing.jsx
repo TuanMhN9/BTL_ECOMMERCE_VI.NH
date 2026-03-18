@@ -16,10 +16,11 @@ import {
   fetchAllFilteredProducts,
   fetchProductDetails,
 } from "@/store/shop/products-slice";
-import { ArrowUpDownIcon } from "lucide-react";
+import { ArrowUpDownIcon, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
+import { Input } from "@/components/ui/input";
 
 function createSearchParamsHelper(filterParams) {
   const queryParams = [];
@@ -48,6 +49,7 @@ function ShoppingListing() {
   const [sort, setSort] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
   const categorySearchParam = searchParams.get("category");
@@ -82,6 +84,17 @@ function ShoppingListing() {
     setFilters({});
     sessionStorage.removeItem("filters");
     setSearchParams(new URLSearchParams());
+  }
+
+  function handleSearch() {
+    let cpyFilters = { ...filters };
+    if (searchTerm.trim()) {
+      cpyFilters.keyword = [searchTerm.trim()];
+    } else {
+      delete cpyFilters.keyword;
+    }
+    setFilters(cpyFilters);
+    sessionStorage.setItem("filters", JSON.stringify(cpyFilters));
   }
 
   function handleGetProductDetails(getCurrentProductId) {
@@ -164,7 +177,7 @@ function ShoppingListing() {
   console.log(productList, "productListproductListproductList");
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-6 p-4 md:p-6">
+    <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6 p-4 sm:p-6 md:p-8 lg:p-12 xl:p-16">
       <ProductFilter
         filters={filters}
         handleFilter={handleFilter}
@@ -174,6 +187,19 @@ function ShoppingListing() {
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-lg font-extrabold">All Products</h2>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-64"
+              />
+              <Button onClick={handleSearch} variant="outline" size="icon">
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
             <span className="text-muted-foreground">
               {productList?.length} Products
             </span>
@@ -203,7 +229,7 @@ function ShoppingListing() {
             </DropdownMenu>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
           {productList && productList.length > 0
             ? productList.map((productItem) => (
                 <ShoppingProductTile

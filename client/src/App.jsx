@@ -25,6 +25,7 @@ import PaymentSuccessPage from "./pages/shopping-view/payment-success";
 import SearchProducts from "./pages/shopping-view/search";
 import ShoppingAbout from "./pages/shopping-view/about";
 import ScrollToTop from "./components/common/scroll-to-top";
+import ShoppingWishlist from "./pages/shopping-view/wishlist";
 
 function App() {
   const { user, isAuthenticated, isLoading } = useSelector(
@@ -94,6 +95,7 @@ function App() {
           <Route path="payment-success" element={<PaymentSuccessPage />} />
           <Route path="search" element={<SearchProducts />} />
           <Route path="about" element={<ShoppingAbout />} />
+          <Route path="wishlist" element={<ShoppingWishlist />} />
         </Route>
         <Route
           path="/unauth-page"

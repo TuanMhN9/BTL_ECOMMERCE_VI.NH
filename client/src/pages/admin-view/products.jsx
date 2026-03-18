@@ -19,7 +19,7 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -36,6 +36,7 @@ const initialFormData = {
   sizes: [],
   colors: [],
   averageReview: 0,
+  variants: [],
 };
 
 function AdminProducts() {
@@ -48,10 +49,13 @@ function AdminProducts() {
   const [currentEditedId, setCurrentEditedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showOutOfStockOnly, setShowOutOfStockOnly] = useState(false);
+  const [hasVariants, setHasVariants] = useState(false);
 
   const { productList } = useSelector((state) => state.adminProducts);
   const dispatch = useDispatch();
   const { toast } = useToast();
+
+  const formControls = hasVariants ? addProductFormElements.filter(control => control.name !== 'totalStock') : addProductFormElements;
 
   const filteredProducts =
     productList && productList.length > 0
@@ -60,7 +64,9 @@ function AdminProducts() {
           .toLowerCase()
           .includes(searchTerm.toLowerCase());
         const matchesStock = showOutOfStockOnly
-          ? productItem.totalStock <= 0
+          ? (productItem.variants && productItem.variants.length > 0
+              ? productItem.variants.some(variant => variant.stock <= 0)
+              : productItem.totalStock <= 0)
           : true;
 
         return matchesSearch && matchesStock;
@@ -70,15 +76,20 @@ function AdminProducts() {
   function onSubmit(event) {
     event.preventDefault();
 
+    const finalFormData = {
+      ...formData,
+      images: uploadedImageUrl,
+      image: uploadedImageUrl.length > 0 ? uploadedImageUrl[0] : "",
+      totalStock: formData.variants.length > 0 
+        ? formData.variants.reduce((sum, v) => sum + Number(v.stock), 0)
+        : formData.totalStock
+    };
+
     currentEditedId !== null
       ? dispatch(
         editProduct({
           id: currentEditedId,
-          formData: {
-            ...formData,
-            images: uploadedImageUrl,
-            image: uploadedImageUrl.length > 0 ? uploadedImageUrl[0] : ""
-          },
+          formData: finalFormData,
         })
       ).then((data) => {
         console.log(data, "edit");
@@ -88,14 +99,11 @@ function AdminProducts() {
           setFormData(initialFormData);
           setOpenCreateProductsDialog(false);
           setCurrentEditedId(null);
+          setHasVariants(false);
         }
       })
       : dispatch(
-        addNewProduct({
-          ...formData,
-          images: uploadedImageUrl,
-          image: uploadedImageUrl.length > 0 ? uploadedImageUrl[0] : "",
-        })
+        addNewProduct(finalFormData)
       ).then((data) => {
         if (data?.payload?.success) {
           dispatch(fetchAllProducts());
@@ -119,7 +127,7 @@ function AdminProducts() {
 
   function isFormValid() {
     const isSalePriceValid =
-      formData.salePrice === "" || 
+      formData.salePrice === "" ||
       formData.salePrice === 0 ||
       Number(formData.salePrice) < Number(formData.price);
 
@@ -139,7 +147,7 @@ function AdminProducts() {
           if (Array.isArray(value)) return value.length > 0;
           return value !== "" && value !== null && value !== undefined;
         })
-        .every((item) => item) && 
+        .every((item) => item) &&
       formData.totalStock >= 0 &&
       isSalePriceValid &&
       uploadedImageUrl.length > 0
@@ -150,17 +158,66 @@ function AdminProducts() {
     dispatch(fetchAllProducts());
   }, [dispatch]);
 
-  // Sync images when editing
+  // Auto-generate variants from sizes and colors
+  useEffect(() => {
+    if (formData.sizes.length > 0 && formData.colors.length > 0) {
+      const generatedVariants = [];
+      for (const size of formData.sizes) {
+        for (const color of formData.colors) {
+          // Check if variant already exists to preserve stock
+          const existingVariant = formData.variants.find(v => v.size === size && v.color === color);
+          generatedVariants.push({
+            size,
+            color,
+            stock: existingVariant ? existingVariant.stock : 0,
+            price: formData.price || 0,
+            salePrice: formData.salePrice || 0,
+          });
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        variants: generatedVariants,
+      }));
+      setHasVariants(true);
+    } else if (formData.sizes.length === 0 || formData.colors.length === 0) {
+      setFormData(prev => ({
+        ...prev,
+        variants: [],
+      }));
+      setHasVariants(false);
+    }
+  }, [formData.sizes, formData.colors, formData.price, formData.salePrice]);
+
+  // Update totalStock when variants change
+  useEffect(() => {
+    if (formData.variants.length > 0) {
+      const total = formData.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      setFormData(prev => ({ ...prev, totalStock: total }));
+    }
+  }, [formData.variants]);
+
+  // Reset images when opening dialog for add new
+  useEffect(() => {
+    if (openCreateProductsDialog && currentEditedId === null) {
+      setUploadedImageUrl([]);
+      setImageFile(null);
+    }
+  }, [openCreateProductsDialog, currentEditedId]);
+
+  // Sync images and variants when editing
   useEffect(() => {
     if (currentEditedId !== null && openCreateProductsDialog) {
-      const existingImages = 
-        formData.images && formData.images.length > 0 
-          ? formData.images 
+      const existingImages =
+        formData.images && formData.images.length > 0
+          ? formData.images
           : (formData.image ? [formData.image] : []);
-      
-      if (existingImages.length > 0 && uploadedImageUrl.length === 0) {
-        setUploadedImageUrl(existingImages);
-        setImageFile(existingImages); 
+
+      setUploadedImageUrl(existingImages);
+      setImageFile(existingImages);
+
+      if (formData.variants.length > 0) {
+        setHasVariants(true);
       }
     }
   }, [currentEditedId, formData, openCreateProductsDialog]);
@@ -243,16 +300,84 @@ function AdminProducts() {
               formData={formData}
               setFormData={setFormData}
               buttonText={currentEditedId !== null ? "Edit" : "Add"}
-              formControls={addProductFormElements}
+              formControls={formControls}
               isBtnDisabled={!isFormValid()}
               errors={
                 formData.salePrice !== "" &&
-                formData.salePrice > 0 &&
-                Number(formData.salePrice) >= Number(formData.price)
+                  formData.salePrice > 0 &&
+                  Number(formData.salePrice) >= Number(formData.price)
                   ? { salePrice: "Giá sale phải nhỏ hơn giá gốc!" }
                   : {}
               }
             />
+
+            {formData.variants.length > 0 && (
+              <div className="mt-8 border-t pt-6">
+                <Label className="text-base font-semibold mb-4 block">
+                  Biến thể sản phẩm (tự động tạo từ Size và Color)
+                </Label>
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500">Biến thể</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-24">Giá</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-24">Sale</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-20">Kho</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {formData.variants.map((variant, vIdx) => (
+                        <tr key={vIdx} className={variant.stock == 0 ? "opacity-50 line-through" : ""}>
+                          <td className="px-3 py-2 font-medium">
+                            {variant.size} {variant.color ? `/ ${variant.color}` : ""}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input 
+                              type="number" 
+                              className="h-8 p-1" 
+                              value={variant.price}
+                              min="0"
+                              onChange={(e) => {
+                                const newVariants = [...formData.variants];
+                                newVariants[vIdx].price = e.target.value;
+                                setFormData({ ...formData, variants: newVariants });
+                              }}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input 
+                              type="number" 
+                              className="h-8 p-1" 
+                              value={variant.salePrice}
+                              min="0"
+                              onChange={(e) => {
+                                const newVariants = [...formData.variants];
+                                newVariants[vIdx].salePrice = e.target.value;
+                                setFormData({ ...formData, variants: newVariants });
+                              }}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input 
+                              type="number" 
+                              className="h-8 p-1" 
+                              value={variant.stock}
+                              min="0"
+                              onChange={(e) => {
+                                const newVariants = [...formData.variants];
+                                newVariants[vIdx].stock = e.target.value;
+                                setFormData({ ...formData, variants: newVariants });
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>
