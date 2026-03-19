@@ -6,11 +6,15 @@ import { Separator } from "../ui/separator";
 import { Button } from "../ui/button";
 
 function ProductFilter({ filters, handleFilter, handleClearFilters }) {
+  const hasActiveFilters = filters && Object.keys(filters).some(
+    (key) => key !== 'keyword' && filters[key] && filters[key].length > 0
+  );
+
   return (
     <div className="bg-background rounded-lg shadow-sm">
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="text-lg font-extrabold">Filters</h2>
-        {filters && Object.keys(filters).length > 0 && (
+        {hasActiveFilters && (
           <Button
             onClick={handleClearFilters}
             variant="ghost"

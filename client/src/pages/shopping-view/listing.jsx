@@ -16,7 +16,7 @@ import {
   fetchAllFilteredProducts,
   fetchProductDetails,
 } from "@/store/shop/products-slice";
-import { ArrowUpDownIcon, Search } from "lucide-react";
+import { ArrowUpDownIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
@@ -96,6 +96,26 @@ function ShoppingListing() {
     setFilters(cpyFilters);
     sessionStorage.setItem("filters", JSON.stringify(cpyFilters));
   }
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      let cpyFilters = { ...filters };
+      const currentKeyword = cpyFilters.keyword ? cpyFilters.keyword[0] : "";
+      const newKeyword = searchTerm.trim();
+
+      if (currentKeyword !== newKeyword) {
+        if (newKeyword) {
+          cpyFilters.keyword = [newKeyword];
+        } else {
+           delete cpyFilters.keyword;
+        }
+        setFilters(cpyFilters);
+        sessionStorage.setItem("filters", JSON.stringify(cpyFilters));
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, filters]);
 
   function handleGetProductDetails(getCurrentProductId) {
     console.log(getCurrentProductId);
@@ -188,17 +208,25 @@ function ShoppingListing() {
           <h2 className="text-lg font-extrabold">All Products</h2>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                className="w-64"
-              />
-              <Button onClick={handleSearch} variant="outline" size="icon">
-                <Search className="h-4 w-4" />
-              </Button>
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64 pr-8"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
             <span className="text-muted-foreground">
               {productList?.length} Products

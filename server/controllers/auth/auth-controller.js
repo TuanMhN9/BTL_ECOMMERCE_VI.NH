@@ -5,21 +5,38 @@ const User = require("../../models/User");
 //register
 const registerUser = async (req, res) => {
   const { userName, email, password } = req.body;
+  const identifier = email || userName;
 
   try {
-    const checkUser = await User.findOne({ email });
+    if (!identifier) {
+      return res.json({
+        success: false,
+        message: "Please provide a user name or email to register",
+      });
+    }
+
+    const checkUser = await User.findOne({ 
+      $or: [
+        { email: identifier },
+        { userName: identifier }
+      ]
+    });
     if (checkUser)
       return res.json({
         success: false,
-        message: "User Already exists with the same email! Please try again",
+        message: "User Already exists with the same email or user name! Please try again",
       });
 
     const hashPassword = await bcrypt.hash(password, 12);
-    const newUser = new User({
-      userName,
-      email,
-      password: hashPassword,
-    });
+    const userPayload = { password: hashPassword };
+    
+    if (identifier.includes('@')) {
+      userPayload.email = identifier;
+    } else {
+      userPayload.userName = identifier;
+    }
+
+    const newUser = new User(userPayload);
 
     await newUser.save();
     res.status(200).json({
@@ -37,14 +54,16 @@ const registerUser = async (req, res) => {
 
 //login
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body; // 'email' field in req.body might hold either email or userName
 
   try {
-    const checkUser = await User.findOne({ email });
+    const checkUser = await User.findOne({
+      $or: [{ email: email }, { userName: email }],
+    });
     if (!checkUser)
       return res.json({
         success: false,
-        message: "User doesn't exists! Please register first",
+        message: "User doesn't exist! Please register first",
       });
 
     const checkPasswordMatch = await bcrypt.compare(

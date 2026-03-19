@@ -1,14 +1,15 @@
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { capturePayment } from "@/store/shop/order-slice";
-import { clearCart } from "@/store/shop/cart-slice";
+import { clearCart, fetchCartItems, clearSelectedItems } from "@/store/shop/cart-slice";
 import { useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 
 function StripeReturnPage() {
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
 
   // Lấy params từ Stripe success_url
   const params = new URLSearchParams(location.search);
@@ -21,7 +22,12 @@ function StripeReturnPage() {
       dispatch(capturePayment({ orderId, sessionId })).then((data) => {
         sessionStorage.removeItem("currentOrderId");
         if (data?.payload?.success) {
-          dispatch(clearCart());
+          if (user?.id) {
+            dispatch(fetchCartItems(user?.id));
+          } else {
+            dispatch(clearCart());
+          }
+          dispatch(clearSelectedItems());
           navigate(`/shop/payment-success?orderId=${orderId}`);
         }
       });

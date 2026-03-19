@@ -9,7 +9,7 @@ import { Navigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 
 function ShoppingCheckout() {
-  const { cartItems } = useSelector((state) => state.shopCart);
+  const { cartItems, selectedItems = [] } = useSelector((state) => state.shopCart);
   const { user } = useSelector((state) => state.auth);
   const { approvalURL } = useSelector((state) => state.shopOrder);
   const [currentSelectedAddress, setCurrentSelectedAddress] = useState(null);
@@ -19,9 +19,13 @@ function ShoppingCheckout() {
 
   console.log(currentSelectedAddress, "cartItems");
 
+  const checkoutItems = cartItems && cartItems.items && cartItems.items.length > 0
+    ? cartItems.items.filter(item => (selectedItems || []).includes(`${item.productId}-${item.size || ''}-${item.color || ''}`))
+    : [];
+
   const totalCartAmount =
-    cartItems && cartItems.items && cartItems.items.length > 0
-      ? cartItems.items.reduce(
+    checkoutItems.length > 0
+      ? checkoutItems.reduce(
         (sum, currentItem) =>
           sum +
           (currentItem?.salePrice > 0
@@ -33,9 +37,9 @@ function ShoppingCheckout() {
       : 0;
 
   function handleInitiateStripePayment() {
-    if (cartItems.length === 0) {
+    if (checkoutItems.length === 0) {
       toast({
-        title: "Your cart is empty. Please add items to proceed",
+        title: "Your checkout cart is empty. Please select items to proceed",
         variant: "destructive",
       });
 
@@ -53,7 +57,7 @@ function ShoppingCheckout() {
     const orderData = {
       userId: user?.id,
       cartId: cartItems?._id,
-      cartItems: cartItems.items.map((singleCartItem) => ({
+      cartItems: checkoutItems.map((singleCartItem) => ({
         productId: singleCartItem?.productId,
         title: singleCartItem?.title,
         image: singleCartItem?.image,
@@ -108,9 +112,9 @@ function ShoppingCheckout() {
           setCurrentSelectedAddress={setCurrentSelectedAddress}
         />
         <div className="flex flex-col gap-4">
-          {cartItems && cartItems.items && cartItems.items.length > 0
-            ? cartItems.items.map((item) => (
-              <UserCartItemsContent cartItem={item} />
+          {checkoutItems && checkoutItems.length > 0
+            ? checkoutItems.map((item, idx) => (
+              <UserCartItemsContent key={idx} cartItem={item} />
             ))
             : null}
           <div className="mt-8 space-y-4">

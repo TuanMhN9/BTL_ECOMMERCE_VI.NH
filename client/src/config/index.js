@@ -1,17 +1,10 @@
 export const registerFormControls = [
   {
-    name: "userName",
-    label: "User Name",
-    placeholder: "Enter your user name",
+    name: "email",
+    label: "User Name or Email",
+    placeholder: "Enter your user name or email",
     componentType: "input",
     type: "text",
-  },
-  {
-    name: "email",
-    label: "Email",
-    placeholder: "Enter your email",
-    componentType: "input",
-    type: "email",
   },
   {
     name: "password",
@@ -25,10 +18,10 @@ export const registerFormControls = [
 export const loginFormControls = [
   {
     name: "email",
-    label: "Email",
-    placeholder: "Enter your email",
+    label: "Email or User Name",
+    placeholder: "Enter your email or user name",
     componentType: "input",
-    type: "email",
+    type: "text",
   },
   {
     name: "password",
@@ -124,12 +117,7 @@ export const shoppingViewHeaderMenuItems = [
     id: "products",
     label: "Products",
     path: "/shop/listing",
-  },
-  {
-    id: "wishlist",
-    label: "Wishlist",
-    path: "/shop/wishlist",
-  },
+  }
 ];
 
 export const categoryOptionsMap = {

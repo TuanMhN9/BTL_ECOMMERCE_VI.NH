@@ -2,9 +2,13 @@ const Product = require("../../models/Product");
 
 const getFilteredProducts = async (req, res) => {
   try {
-    const { category = [], brand = [], sortBy = "price-lowtohigh" } = req.query;
+    const { category = [], brand = [], keyword = "", sortBy = "price-lowtohigh" } = req.query;
 
     let filters = {};
+
+    if (keyword) {
+      filters.title = new RegExp(keyword, "i");
+    }
 
     if (category.length) {
       filters.category = { $in: category.split(",") };

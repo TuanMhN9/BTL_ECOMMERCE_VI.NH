@@ -4,6 +4,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 const initialState = {
   cartItems: [],
   isLoading: false,
+  selectedItems: [],
 };
 
 export const addToCart = createAsyncThunk(
@@ -89,6 +90,23 @@ const shoppingCartSlice = createSlice({
   reducers: {
     clearCart: (state) => {
       state.cartItems = [];
+      state.selectedItems = [];
+    },
+    toggleSelectItem: (state, action) => {
+      const { id } = action.payload;
+      if (!state.selectedItems) state.selectedItems = [];
+      const index = state.selectedItems.indexOf(id);
+      if (index === -1) {
+        state.selectedItems.push(id);
+      } else {
+        state.selectedItems.splice(index, 1);
+      }
+    },
+    selectAllItems: (state, action) => {
+      state.selectedItems = action.payload;
+    },
+    clearSelectedItems: (state) => {
+      state.selectedItems = [];
     },
   },
   extraReducers: (builder) => {
@@ -140,6 +158,6 @@ const shoppingCartSlice = createSlice({
   },
 });
 
-export const { clearCart } = shoppingCartSlice.actions;
+export const { clearCart, toggleSelectItem, selectAllItems, clearSelectedItems } = shoppingCartSlice.actions;
 
 export default shoppingCartSlice.reducer;

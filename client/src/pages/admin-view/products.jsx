@@ -60,9 +60,7 @@ function AdminProducts() {
   const filteredProducts =
     productList && productList.length > 0
       ? productList.filter((productItem) => {
-        const matchesSearch = productItem.title
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
+        const matchesSearch = productItem.title && productItem.title.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStock = showOutOfStockOnly
           ? (productItem.variants && productItem.variants.length > 0
               ? productItem.variants.some(variant => variant.stock <= 0)
@@ -169,7 +167,7 @@ function AdminProducts() {
           generatedVariants.push({
             size,
             color,
-            stock: existingVariant ? existingVariant.stock : 0,
+            stock: existingVariant ? existingVariant.stock : 1,
             price: formData.price || 0,
             salePrice: formData.salePrice || 0,
           });

@@ -91,17 +91,17 @@ function Address({ setCurrentSelectedAddress, selectedId }) {
     setCurrentEditedId(getCuurentAddress?._id);
     setFormData({
       ...formData,
-      address: getCuurentAddress?.address,
-      city: getCuurentAddress?.city,
-      phone: getCuurentAddress?.phone,
-      pincode: getCuurentAddress?.pincode,
-      notes: getCuurentAddress?.notes,
+      address: getCuurentAddress?.address || "",
+      city: getCuurentAddress?.city || "",
+      phone: getCuurentAddress?.phone || "",
+      pincode: getCuurentAddress?.pincode || "",
+      notes: getCuurentAddress?.notes || "",
     });
   }
 
   function isFormValid() {
     return Object.keys(formData)
-      .map((key) => formData[key].trim() !== "")
+      .map((key) => formData[key] !== undefined && formData[key] !== null && String(formData[key]).trim() !== "")
       .every((item) => item);
   }
 

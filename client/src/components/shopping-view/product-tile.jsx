@@ -161,7 +161,8 @@ function ShoppingProductTile({
         ) : (
           <div className="flex flex-col w-full gap-2">
             <Button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (isSelectionRequired) {
                   const isSizeMissing = product?.sizes?.length > 0 && !selectedSize;
                   const isColorMissing = product?.colors?.length > 0 && !selectedColor;
@@ -181,6 +182,13 @@ function ShoppingProductTile({
                       title: "Please select a color",
                       variant: "destructive",
                     });
+                  } else {
+                    handleAddtoCart(
+                      product?._id,
+                      product?.totalStock,
+                      selectedSize,
+                      selectedColor
+                    );
                   }
                 } else {
                   handleAddtoCart(

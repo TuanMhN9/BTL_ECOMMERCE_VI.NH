@@ -9,7 +9,6 @@ import shopAddressSlice from "./shop/address-slice";
 import shopOrderSlice from "./shop/order-slice";
 import shopSearchSlice from "./shop/search-slice";
 import shopReviewSlice from "./shop/review-slice";
-import shopWishlistSlice from "./shop/wishlist-slice";
 import commonFeatureSlice from "./common-slice";
 import adminAnalyticsSlice from "./admin/analytics-slice";
 import adminUserReducer from "./admin/user-slice";

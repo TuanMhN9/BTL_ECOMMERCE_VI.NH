@@ -16,7 +16,6 @@ const adminAnalyticsRouter = require("./routes/admin/analytics-routes");
 const adminUserRouter = require("./routes/admin/user-routes");
 
 const commonFeatureRouter = require("./routes/common/feature-routes");
-const shopWishlistRouter = require("./routes/shop/wishlist-routes");
 
 //create a database connection -> u can also
 //create a separate file for this and then import/use that file here
@@ -60,6 +59,5 @@ app.use("/api/shop/search", shopSearchRouter);
 app.use("/api/shop/review", shopReviewRouter);
 
 app.use("/api/common/feature", commonFeatureRouter);
-app.use("/api/shop/wishlist", shopWishlistRouter);
 
 app.listen(PORT, () => console.log(`Server is now running on port ${PORT}`));

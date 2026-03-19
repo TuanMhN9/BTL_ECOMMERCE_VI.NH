@@ -39,6 +39,13 @@ const addProduct = async (req, res) => {
       variants,
     } = req.body;
 
+    if (!title || !category || price === undefined || price === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Title, category, and price are required",
+      });
+    }
+
     if (totalStock < 0) {
       return res.status(400).json({
         success: false,

@@ -95,7 +95,24 @@ const capturePayment = async (req, res) => {
         }
       }
     }
-    await Cart.findByIdAndDelete(order.cartId);
+
+    const cart = await Cart.findById(order.cartId);
+    if (cart) {
+      order.cartItems.forEach((orderedItem) => {
+        cart.items = cart.items.filter(
+          (cartItem) => 
+            !(cartItem.productId.toString() === orderedItem.productId.toString() && 
+              (cartItem.size || '') === (orderedItem.size || '') && 
+              (cartItem.color || '') === (orderedItem.color || ''))
+        );
+      });
+      if (cart.items.length === 0) {
+        await Cart.findByIdAndDelete(order.cartId);
+      } else {
+        await cart.save();
+      }
+    }
+
     await order.save();
 
     res.status(200).json({

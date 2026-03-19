@@ -95,7 +95,6 @@ function App() {
           <Route path="payment-success" element={<PaymentSuccessPage />} />
           <Route path="search" element={<SearchProducts />} />
           <Route path="about" element={<ShoppingAbout />} />
-          <Route path="wishlist" element={<ShoppingWishlist />} />
         </Route>
         <Route
           path="/unauth-page"

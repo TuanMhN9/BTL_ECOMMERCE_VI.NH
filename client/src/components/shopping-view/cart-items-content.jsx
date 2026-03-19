@@ -3,13 +3,29 @@ import { Button } from "../ui/button";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteCartItem, updateCartQuantity } from "@/store/shop/cart-slice";
 import { useToast } from "../ui/use-toast";
+import { useState, useEffect } from "react";
+import { Input } from "../ui/input";
+import { Checkbox } from "../ui/checkbox";
+import { toggleSelectItem } from "@/store/shop/cart-slice";
 
 function UserCartItemsContent({ cartItem }) {
   const { user } = useSelector((state) => state.auth);
-  const { cartItems } = useSelector((state) => state.shopCart);
+  const { cartItems, selectedItems = [] } = useSelector((state) => state.shopCart);
   const { productList } = useSelector((state) => state.shopProducts);
   const dispatch = useDispatch();
   const { toast } = useToast();
+  const [quantityInput, setQuantityInput] = useState(cartItem?.quantity || 1);
+
+  const itemId = `${cartItem.productId}-${cartItem.size || ''}-${cartItem.color || ''}`;
+  const isSelected = (selectedItems || []).includes(itemId);
+
+  const handleToggleSelect = () => {
+    dispatch(toggleSelectItem({ id: itemId }));
+  };
+
+  useEffect(() => {
+    setQuantityInput(cartItem?.quantity || 1);
+  }, [cartItem?.quantity]);
 
   function handleUpdateQuantity(getCartItem, typeOfAction) {
     if (typeOfAction == "plus") {
@@ -89,8 +105,71 @@ function UserCartItemsContent({ cartItem }) {
     });
   }
 
+  function handleQuantityChange(newQuantity) {
+    const quantity = parseInt(newQuantity);
+    if (isNaN(quantity) || quantity < 1) {
+      setQuantityInput(cartItem?.quantity || 1);
+      return;
+    }
+
+    // Check stock
+    let getCartItems = cartItems.items || [];
+    const getCurrentProductIndex = productList.findIndex(
+      (product) => product._id === cartItem?.productId
+    );
+    let getTotalStock = getCurrentProductIndex > -1
+      ? productList[getCurrentProductIndex].totalStock
+      : null;
+
+    // If variant, check variant stock
+    if (cartItem?.size && cartItem?.color && getCurrentProductIndex > -1) {
+      const product = productList[getCurrentProductIndex];
+      if (product.variants && product.variants.length > 0) {
+        const variant = product.variants.find(v => v.size === cartItem.size && v.color === cartItem.color);
+        if (variant) getTotalStock = variant.stock;
+      }
+    }
+
+    if (quantity > getTotalStock) {
+      toast({
+        title: `Only ${getTotalStock} quantity available for this item`,
+        variant: "destructive",
+      });
+      setQuantityInput(cartItem?.quantity || 1);
+      return;
+    }
+
+    dispatch(
+      updateCartQuantity({
+        userId: user?.id,
+        productId: cartItem?.productId,
+        size: cartItem?.size,
+        color: cartItem?.color,
+        quantity: quantity,
+      })
+    ).then((data) => {
+      if (data?.payload?.success) {
+        toast({
+          title: "Cart item is updated successfully",
+        });
+        setQuantityInput(quantity);
+      } else {
+        toast({
+          title: data?.payload?.message || "Requested quantity is not available",
+          variant: "destructive",
+        });
+        setQuantityInput(cartItem?.quantity || 1);
+      }
+    });
+  }
+
   return (
     <div className="flex items-center space-x-4">
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={handleToggleSelect}
+        className="flex-shrink-0 mr-2"
+      />
       <img
         src={cartItem?.image}
         alt={cartItem?.title}
@@ -116,20 +195,38 @@ function UserCartItemsContent({ cartItem }) {
             className="h-8 w-8 rounded-full"
             size="icon"
             disabled={cartItem?.quantity === 1}
-            onClick={() => handleUpdateQuantity(cartItem, "minus")}
+            onClick={() => {
+              handleUpdateQuantity(cartItem, "minus");
+              setQuantityInput(cartItem?.quantity - 1);
+            }}
           >
             <Minus className="w-4 h-4" />
             <span className="sr-only">Decrease</span>
           </Button>
-          <span className="font-semibold">{cartItem?.quantity}</span>
+          <Input
+            type="number"
+            min="1"
+            value={quantityInput}
+            onChange={(e) => setQuantityInput(e.target.value)}
+            onBlur={(e) => handleQuantityChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleQuantityChange(e.target.value);
+              }
+            }}
+            className="w-16 h-8 text-center font-semibold"
+          />
           <Button
             variant="outline"
             className="h-8 w-8 rounded-full"
             size="icon"
-            onClick={() => handleUpdateQuantity(cartItem, "plus")}
+            onClick={() => {
+              handleUpdateQuantity(cartItem, "plus");
+              setQuantityInput(cartItem?.quantity + 1);
+            }}
           >
             <Plus className="w-4 h-4" />
-            <span className="sr-only">Decrease</span>
+            <span className="sr-only">Increase</span>
           </Button>
         </div>
       </div>
