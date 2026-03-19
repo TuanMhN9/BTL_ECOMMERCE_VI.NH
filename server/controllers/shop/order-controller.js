@@ -4,6 +4,58 @@ const Product = require("../../models/Product");
 // Khởi tạo Stripe với Secret Key (Lấy từ Dashboard Stripe ở chế độ Test Mode)
 const stripe = require("stripe")("sk_test_51T5HNsEfNGpDAoXu4eDCQG8qbWclUHDrkXwZk3Gkjn89MwL5wTF7gOHRMSCrtfGfihKb4iuU7Vge7p8ZKHSJx6Pa001GS1Fknu");
 
+const ORDER_CODE_PREFIX = "ORD";
+const ORDER_CODE_RANDOM_LENGTH = 6;
+const ORDER_CODE_MAX_ATTEMPTS = 5;
+const ORDER_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function formatDateYYMMDD(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return formatDateYYMMDD(new Date());
+  }
+
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function generateRandomCode(length = ORDER_CODE_RANDOM_LENGTH) {
+  let output = "";
+  for (let i = 0; i < length; i += 1) {
+    const idx = Math.floor(Math.random() * ORDER_CODE_CHARS.length);
+    output += ORDER_CODE_CHARS[idx];
+  }
+  return output;
+}
+
+function buildOrderCode(orderDate) {
+  const datePart = formatDateYYMMDD(orderDate);
+  const randomPart = generateRandomCode();
+  return `${ORDER_CODE_PREFIX}-${datePart}-${randomPart}`;
+}
+
+async function createUniqueOrderCode(orderDate) {
+  for (let attempt = 0; attempt < ORDER_CODE_MAX_ATTEMPTS; attempt += 1) {
+    const code = buildOrderCode(orderDate);
+    const exists = await Order.findOne({ orderCode: code })
+      .select("_id")
+      .lean();
+
+    if (!exists) return code;
+  }
+
+  return buildOrderCode(orderDate);
+}
+
+async function ensureOrderCode(order) {
+  if (!order || order.orderCode) return order;
+  order.orderCode = await createUniqueOrderCode(order.orderDate);
+  await order.save();
+  return order;
+}
+
 const createOrder = async (req, res) => {
   try {
     const {
@@ -11,9 +63,16 @@ const createOrder = async (req, res) => {
       orderDate, orderUpdateDate, cartId,
     } = req.body;
 
+    const orderCode = await createUniqueOrderCode(orderDate);
+
     // 1. Lưu đơn hàng vào DB với trạng thái pending
     const newlyCreatedOrder = new Order({
-      userId, cartId, cartItems, addressInfo, orderStatus,
+      userId,
+      orderCode,
+      cartId,
+      cartItems,
+      addressInfo,
+      orderStatus,
       paymentMethod: "stripe", // Đổi thành stripe
       paymentStatus: "pending", totalAmount, orderDate, orderUpdateDate,
     });
@@ -132,6 +191,12 @@ const getAllOrdersByUser = async (req, res) => {
 
     const orders = await Order.find({ userId }).sort({ orderDate: -1 });
 
+    for (const order of orders) {
+      if (!order.orderCode) {
+        await ensureOrderCode(order);
+      }
+    }
+
     if (!orders.length) {
       return res.status(404).json({
         success: false,
@@ -164,6 +229,8 @@ const getOrderDetails = async (req, res) => {
         message: "Order not found!",
       });
     }
+
+    await ensureOrderCode(order);
 
     res.status(200).json({
       success: true,

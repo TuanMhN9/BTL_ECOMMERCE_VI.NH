@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const OrderSchema = new mongoose.Schema({
   userId: String,
+  orderCode: {
+    type: String,
+    index: true,
+    unique: true,
+    sparse: true,
+  },
   cartId: String,
   cartItems: [
     {

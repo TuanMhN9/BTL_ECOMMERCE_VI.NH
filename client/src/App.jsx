@@ -25,7 +25,6 @@ import PaymentSuccessPage from "./pages/shopping-view/payment-success";
 import SearchProducts from "./pages/shopping-view/search";
 import ShoppingAbout from "./pages/shopping-view/about";
 import ScrollToTop from "./components/common/scroll-to-top";
-import ShoppingWishlist from "./pages/shopping-view/wishlist";
 
 function App() {
   const { user, isAuthenticated, isLoading } = useSelector(

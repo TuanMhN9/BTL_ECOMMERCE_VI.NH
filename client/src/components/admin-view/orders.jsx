@@ -81,7 +81,7 @@ function AdminOrdersView() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Order ID</TableHead>
+              <TableHead>Order Code</TableHead>
               <TableHead>Customer Name</TableHead>
               <TableHead>Customer Email</TableHead>
               <TableHead 
@@ -104,7 +104,7 @@ function AdminOrdersView() {
             {filteredAndSortedOrderList && filteredAndSortedOrderList.length > 0
               ? filteredAndSortedOrderList.map((orderItem) => (
                   <TableRow>
-                    <TableCell>{orderItem?._id}</TableCell>
+                    <TableCell>{orderItem?.orderCode || "—"}</TableCell>
                     <TableCell>{orderItem?.userName}</TableCell>
                     <TableCell>{orderItem?.email}</TableCell>
                     <TableCell>{orderItem?.orderDate.split("T")[0]}</TableCell>

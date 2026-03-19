@@ -138,7 +138,7 @@ function ShoppingHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+      <div className="flex h-16 items-center justify-between px-4 md:px-6 w-full">
         <Link to="/shop/home" className="flex items-center gap-2">
           <HousePlug className="h-6 w-6" strokeWidth={1.5} />
           <span className="font-semibold text-lg">Ecommerce</span>

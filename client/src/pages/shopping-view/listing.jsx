@@ -197,7 +197,7 @@ function ShoppingListing() {
   console.log(productList, "productListproductListproductList");
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6 p-4 sm:p-6 md:p-8 lg:p-12 xl:p-16">
+    <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6 p-4 md:p-6">
       <ProductFilter
         filters={filters}
         handleFilter={handleFilter}

@@ -1,6 +1,58 @@
 const Order = require("../../models/Order");
 const User = require("../../models/User");
 
+const ORDER_CODE_PREFIX = "ORD";
+const ORDER_CODE_RANDOM_LENGTH = 6;
+const ORDER_CODE_MAX_ATTEMPTS = 5;
+const ORDER_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function formatDateYYMMDD(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return formatDateYYMMDD(new Date());
+  }
+
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function generateRandomCode(length = ORDER_CODE_RANDOM_LENGTH) {
+  let output = "";
+  for (let i = 0; i < length; i += 1) {
+    const idx = Math.floor(Math.random() * ORDER_CODE_CHARS.length);
+    output += ORDER_CODE_CHARS[idx];
+  }
+  return output;
+}
+
+function buildOrderCode(orderDate) {
+  const datePart = formatDateYYMMDD(orderDate);
+  const randomPart = generateRandomCode();
+  return `${ORDER_CODE_PREFIX}-${datePart}-${randomPart}`;
+}
+
+async function createUniqueOrderCode(orderDate) {
+  for (let attempt = 0; attempt < ORDER_CODE_MAX_ATTEMPTS; attempt += 1) {
+    const code = buildOrderCode(orderDate);
+    const exists = await Order.findOne({ orderCode: code })
+      .select("_id")
+      .lean();
+
+    if (!exists) return code;
+  }
+
+  return buildOrderCode(orderDate);
+}
+
+async function ensureOrderCode(order) {
+  if (!order || order.orderCode) return order;
+  order.orderCode = await createUniqueOrderCode(order.orderDate);
+  await order.save();
+  return order;
+}
+
 const getAllOrdersOfAllUsers = async (req, res) => {
   try {
     const orders = await Order.find({});
@@ -10,6 +62,12 @@ const getAllOrdersOfAllUsers = async (req, res) => {
         success: false,
         message: "No orders found!",
       });
+    }
+
+    for (const order of orders) {
+      if (!order.orderCode) {
+        await ensureOrderCode(order);
+      }
     }
 
     // Fetch user details for each order manually since userId is a string
@@ -52,6 +110,8 @@ const getOrderDetailsForAdmin = async (req, res) => {
         message: "Order not found!",
       });
     }
+
+    await ensureOrderCode(order);
 
     res.status(200).json({
       success: true,

@@ -2,6 +2,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../../models/User");
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?\d{9,15}$/;
+
 //register
 const registerUser = async (req, res) => {
   const { userName, email, password } = req.body;
@@ -95,6 +98,8 @@ const loginUser = async (req, res) => {
         role: checkUser.role,
         id: checkUser._id,
         userName: checkUser.userName,
+        phone: checkUser.phone,
+        avatar: checkUser.avatar,
       },
     });
   } catch (e) {
@@ -141,6 +146,8 @@ const authMiddleware = async (req, res, next) => {
       role: user.role,
       email: user.email,
       userName: user.userName,
+      phone: user.phone,
+      avatar: user.avatar,
     };
     next();
   } catch (error) {
@@ -151,4 +158,212 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = { registerUser, loginUser, logoutUser, authMiddleware };
+const updateUserProfile = async (req, res) => {
+  try {
+    const { userName, email, phone } = req.body;
+    const userId = req.user?.id;
+
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+
+    const updateFields = {};
+    const unsetFields = {};
+    let finalUserName = currentUser.userName || "";
+    let finalEmail = currentUser.email || "";
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "userName")) {
+      const nextUserNameValue = String(userName || "").trim();
+      if (nextUserNameValue) {
+        if (nextUserNameValue !== currentUser.userName) {
+          const existingUserName = await User.findOne({
+            userName: nextUserNameValue,
+            _id: { $ne: currentUser._id },
+          }).select("_id");
+
+          if (existingUserName) {
+            return res.status(400).json({
+              success: false,
+              message: "User name already in use",
+            });
+          }
+        }
+        updateFields.userName = nextUserNameValue;
+        finalUserName = nextUserNameValue;
+      } else {
+        unsetFields.userName = 1;
+        finalUserName = "";
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "email")) {
+      const nextEmailValue = String(email || "").trim();
+      if (nextEmailValue) {
+        if (!EMAIL_REGEX.test(nextEmailValue)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid email format",
+          });
+        }
+        if (nextEmailValue !== currentUser.email) {
+          const existingEmail = await User.findOne({
+            email: nextEmailValue,
+            _id: { $ne: currentUser._id },
+          }).select("_id");
+
+          if (existingEmail) {
+            return res.status(400).json({
+              success: false,
+              message: "Email already in use",
+            });
+          }
+        }
+        updateFields.email = nextEmailValue;
+        finalEmail = nextEmailValue;
+      } else {
+        unsetFields.email = 1;
+        finalEmail = "";
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "phone")) {
+      const nextPhoneRaw = String(phone || "").trim();
+      const normalizedPhone = nextPhoneRaw.replace(/[\s-]/g, "");
+      if (normalizedPhone) {
+        if (!PHONE_REGEX.test(normalizedPhone)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid phone number format",
+          });
+        }
+        updateFields.phone = normalizedPhone;
+      } else {
+        unsetFields.phone = 1;
+      }
+    }
+
+    if (Object.keys(updateFields).length === 0 && Object.keys(unsetFields).length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No changes to update",
+        user: {
+          id: currentUser._id,
+          role: currentUser.role,
+          email: currentUser.email,
+          userName: currentUser.userName,
+          phone: currentUser.phone,
+          avatar: currentUser.avatar,
+        },
+      });
+    }
+
+    if (!String(finalUserName || "").trim() && !String(finalEmail || "").trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "User name or email is required",
+      });
+    }
+
+    const updateQuery = {};
+    if (Object.keys(updateFields).length > 0) updateQuery.$set = updateFields;
+    if (Object.keys(unsetFields).length > 0) updateQuery.$unset = unsetFields;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      currentUser._id,
+      updateQuery,
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id: updatedUser._id,
+        role: updatedUser.role,
+        email: updatedUser.email,
+        userName: updatedUser.userName,
+        phone: updatedUser.phone,
+        avatar: updatedUser.avatar,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Some error occured",
+    });
+  }
+};
+
+const changeUserPassword = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Some error occured",
+    });
+  }
+};
+
+module.exports = {
+  registerUser,
+  loginUser,
+  logoutUser,
+  authMiddleware,
+  updateUserProfile,
+  changeUserPassword,
+};

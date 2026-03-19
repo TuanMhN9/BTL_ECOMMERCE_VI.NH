@@ -74,6 +74,38 @@ export const checkAuth = createAsyncThunk(
   }
 );
 
+export const updateUserProfile = createAsyncThunk(
+  "/auth/updateProfile",
+
+  async (formData) => {
+    const response = await axios.put(
+      "http://localhost:5000/api/auth/profile",
+      formData,
+      {
+        withCredentials: true,
+      }
+    );
+
+    return response.data;
+  }
+);
+
+export const changeUserPassword = createAsyncThunk(
+  "/auth/changePassword",
+
+  async (formData) => {
+    const response = await axios.put(
+      "http://localhost:5000/api/auth/change-password",
+      formData,
+      {
+        withCredentials: true,
+      }
+    );
+
+    return response.data;
+  }
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -127,7 +159,16 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
-      });
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        if (action.payload?.success && action.payload?.user) {
+          state.user = action.payload.user;
+        }
+      })
+      .addCase(updateUserProfile.rejected, () => {})
+      .addCase(changeUserPassword.pending, () => {})
+      .addCase(changeUserPassword.fulfilled, () => {})
+      .addCase(changeUserPassword.rejected, () => {});
   },
 });
 

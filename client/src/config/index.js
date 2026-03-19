@@ -198,3 +198,27 @@ export const addressFormControls = [
     placeholder: "Enter any additional notes",
   },
 ];
+
+export const userProfileFormControls = [
+  {
+    label: "User Name",
+    name: "userName",
+    componentType: "input",
+    type: "text",
+    placeholder: "Enter your user name",
+  },
+  {
+    label: "Email",
+    name: "email",
+    componentType: "input",
+    type: "email",
+    placeholder: "Enter your email",
+  },
+  {
+    label: "Phone",
+    name: "phone",
+    componentType: "input",
+    type: "tel",
+    placeholder: "Enter your phone number",
+  },
+];
