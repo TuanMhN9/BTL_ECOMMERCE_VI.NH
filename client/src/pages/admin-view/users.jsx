@@ -28,9 +28,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function getPaginationItems(currentPage, totalPages) {
+  if (totalPages <= 6) {
+    return Array.from({ length: totalPages }, (_, idx) => idx + 1);
+  }
+
+  const lastPage = totalPages;
+  const lastTwo = [lastPage - 1, lastPage];
+
+  if (currentPage <= 2) {
+    return [1, 2, 3, "ellipsis", ...lastTwo];
+  }
+
+  if (currentPage === 3) {
+    return [1, 2, 3, 4, "ellipsis", ...lastTwo];
+  }
+
+  if (currentPage >= 4 && currentPage <= lastPage - 3) {
+    return [
+      1,
+      "ellipsis",
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      "ellipsis",
+      ...lastTwo,
+    ];
+  }
+
+  return [1, "ellipsis", lastPage - 3, lastPage - 2, lastPage - 1, lastPage];
+}
+
 function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4;
   const dispatch = useDispatch();
   const { userList, isLoading } = useSelector((state) => state.adminUser);
   const { toast } = useToast();
@@ -47,6 +80,22 @@ function AdminUsers() {
           return matchesSearch && matchesRole;
         })
       : [];
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, userList]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredUserList.length / itemsPerPage)
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const paginatedUsers = filteredUserList.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+  const pageButtons = getPaginationItems(safeCurrentPage, totalPages);
 
   function handleUpdateRole(userId, currentRole) {
     const newRole = currentRole === "admin" ? "user" : "admin";
@@ -91,47 +140,96 @@ function AdminUsers() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User ID</TableHead>
-              <TableHead>User Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUserList && filteredUserList.length > 0
-              ? filteredUserList.map((userItem) => (
-                  <TableRow key={userItem._id}>
-                    <TableCell className="font-medium">{userItem._id}</TableCell>
-                    <TableCell>{userItem.userName}</TableCell>
-                    <TableCell>{userItem.email}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          userItem.role === "admin" ? "default" : "secondary"
-                        }
-                      >
-                        {userItem.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        onClick={() =>
-                          handleUpdateRole(userItem._id, userItem.role)
-                        }
-                      >
-                        Change Role
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              : null}
-          </TableBody>
-        </Table>
+      <CardContent className="flex flex-col gap-4 min-h-[520px]">
+        <div className="flex-1">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User ID</TableHead>
+                <TableHead>User Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedUsers && paginatedUsers.length > 0
+                ? paginatedUsers.map((userItem) => (
+                    <TableRow key={userItem._id}>
+                      <TableCell className="font-medium">{userItem._id}</TableCell>
+                      <TableCell>{userItem.userName}</TableCell>
+                      <TableCell>{userItem.email}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            userItem.role === "admin" ? "default" : "secondary"
+                          }
+                        >
+                          {userItem.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          onClick={() =>
+                            handleUpdateRole(userItem._id, userItem.role)
+                          }
+                        >
+                          Change Role
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : null}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            Showing {filteredUserList.length === 0 ? 0 : startIndex + 1}
+            {" - "}
+            {Math.min(startIndex + itemsPerPage, filteredUserList.length)} of{" "}
+            {filteredUserList.length}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safeCurrentPage === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            >
+              Previous
+            </Button>
+            {pageButtons.map((page, index) =>
+              page === "ellipsis" ? (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="px-2 text-sm text-muted-foreground"
+                >
+                  ...
+                </span>
+              ) : (
+                <Button
+                  key={page}
+                  variant={page === safeCurrentPage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </Button>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safeCurrentPage === totalPages}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+              }
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

@@ -1,6 +1,5 @@
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardFooter } from "../ui/card";
 
 function AdminProductTile({
   product,
@@ -9,54 +8,34 @@ function AdminProductTile({
   setCurrentEditedId,
   handleDelete,
 }) {
+  const totalStock =
+    product?.variants && product?.variants.length > 0
+      ? product.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0)
+      : product?.totalStock;
+
   return (
-    <Card className="w-full max-w-sm mx-auto flex flex-col h-full">
-      <div className="relative">
+    <div className="grid gap-4 px-4 py-4 md:grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_140px] md:items-center">
+      <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-white">
         <img
           src={product?.image}
           alt={product?.title}
-          className="w-full h-[300px] object-cover rounded-t-lg"
+          className="h-full w-full object-cover"
         />
-        {product?.totalStock === 0 ? (
-          <Badge
-            variant="destructive"
-            className="absolute top-2 left-2 px-2 py-1 text-xs font-bold uppercase"
-          >
-            Out of Stock
-          </Badge>
-        ) : null}
-        {product?.variants && product?.variants.length > 0 ? (
-          <Badge
-            variant="secondary"
-            className="absolute top-2 right-2 px-2 py-1 text-xs font-bold uppercase bg-blue-100 text-blue-800"
-          >
-            Biến thể
-          </Badge>
-        ) : null}
       </div>
-      <CardContent className="flex-1">
-        <h2 className="text-xl font-bold mb-2 mt-2">{product?.title}</h2>
-        <div className="flex justify-between items-center mb-2">
-          <span
-            className={`${product?.salePrice > 0 ? "line-through" : ""
-              } text-lg font-semibold text-primary`}
-          >
-            ${product?.price}
-          </span>
-          {product?.salePrice > 0 ? (
-            <span className="text-lg font-bold">${product?.salePrice}</span>
-          ) : null}
+
+      <div className="min-w-0 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold truncate">{product?.title}</h3>
+          {/* {product?.variants && product?.variants.length > 0 ? (
+            <Badge
+              variant="secondary"
+              className="text-[10px] px-2 py-0.5 uppercase bg-blue-100 text-blue-800"
+            >
+            </Badge>
+          ) : null} */}
         </div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            Stock: {
-              product?.variants && product?.variants.length > 0 
-                ? product.variants.reduce((sum, v) => sum + Number(v.stock), 0)
-                : product?.totalStock
-            }
-          </span>
-        </div>
-        <div className="flex flex-col gap-2 mt-2">
+
+        <div className="flex flex-col gap-2">
           {product?.sizes && product?.sizes.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {product?.sizes.map((size) => (
@@ -71,7 +50,7 @@ function AdminProductTile({
               {product?.colors.map((color) => (
                 <div
                   key={color}
-                  className="w-3 h-3 rounded-sm border border-muted"
+                  className="h-3 w-3 rounded-sm border border-muted"
                   style={{ backgroundColor: color.toLowerCase() }}
                   title={color}
                 />
@@ -79,9 +58,31 @@ function AdminProductTile({
             </div>
           ) : null}
         </div>
-      </CardContent>
-      <CardFooter className="flex justify-between items-center">
+      </div>
+
+      <div className="text-sm font-medium text-muted-foreground">{totalStock}</div>
+
+      <div className="text-sm font-semibold">${product?.price}</div>
+
+      <div className="text-sm font-semibold text-red-600">
+        {product?.salePrice > 0 ? `$${product?.salePrice}` : "—"}
+      </div>
+
+      <div>
+        {totalStock <= 0 ? (
+          <Badge variant="destructive" className="text-[10px] px-2 py-0.5 uppercase">
+            Out of Stock
+          </Badge>
+        ) : (
+          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 uppercase">
+            In Stock
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <Button
+          size="sm"
           onClick={() => {
             setOpenCreateProductsDialog(true);
             setCurrentEditedId(product?._id);
@@ -90,9 +91,15 @@ function AdminProductTile({
         >
           Edit
         </Button>
-        <Button onClick={() => handleDelete(product?._id)}>Delete</Button>
-      </CardFooter>
-    </Card>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => handleDelete(product?._id)}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
   );
 }
 

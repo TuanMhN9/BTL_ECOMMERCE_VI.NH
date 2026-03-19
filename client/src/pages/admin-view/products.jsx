@@ -39,6 +39,37 @@ const initialFormData = {
   variants: [],
 };
 
+function getPaginationItems(currentPage, totalPages) {
+  if (totalPages <= 6) {
+    return Array.from({ length: totalPages }, (_, idx) => idx + 1);
+  }
+
+  const lastPage = totalPages;
+  const lastTwo = [lastPage - 1, lastPage];
+
+  if (currentPage <= 2) {
+    return [1, 2, 3, "ellipsis", ...lastTwo];
+  }
+
+  if (currentPage === 3) {
+    return [1, 2, 3, 4, "ellipsis", ...lastTwo];
+  }
+
+  if (currentPage >= 4 && currentPage <= lastPage - 3) {
+    return [
+      1,
+      "ellipsis",
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      "ellipsis",
+      ...lastTwo,
+    ];
+  }
+
+  return [1, "ellipsis", lastPage - 3, lastPage - 2, lastPage - 1, lastPage];
+}
+
 function AdminProducts() {
   const [openCreateProductsDialog, setOpenCreateProductsDialog] =
     useState(false);
@@ -50,6 +81,8 @@ function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showOutOfStockOnly, setShowOutOfStockOnly] = useState(false);
   const [hasVariants, setHasVariants] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4;
 
   const { productList } = useSelector((state) => state.adminProducts);
   const dispatch = useDispatch();
@@ -70,6 +103,19 @@ function AdminProducts() {
         return matchesSearch && matchesStock;
       })
       : [];
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, showOutOfStockOnly, productList]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+  const pageButtons = getPaginationItems(safeCurrentPage, totalPages);
 
   function onSubmit(event) {
     event.preventDefault();
@@ -243,7 +289,7 @@ function AdminProducts() {
               htmlFor="outOfStock"
               className="text-sm font-medium leading-none cursor-pointer"
             >
-              Hết hàng
+              Out of stock
             </Label>
           </div>
         </div>
@@ -251,18 +297,77 @@ function AdminProducts() {
           Add New Product
         </Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {filteredProducts && filteredProducts.length > 0
-          ? filteredProducts.map((productItem) => (
-            <AdminProductTile
-              setFormData={setFormData}
-              setOpenCreateProductsDialog={setOpenCreateProductsDialog}
-              setCurrentEditedId={setCurrentEditedId}
-              product={productItem}
-              handleDelete={handleDelete}
-            />
-          ))
-          : null}
+      <div className="rounded-lg border bg-background min-h-[520px] flex flex-col">
+        <div className="hidden md:grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_140px] gap-4 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground border-b">
+          <div>Image</div>
+          <div>Name</div>
+          <div>Stock</div>
+          <div>Price</div>
+          <div>Sale Price</div>
+          <div>Stock</div>
+          <div className="text-right">Actions</div>
+        </div>
+        <div className="divide-y flex-1">
+          {paginatedProducts && paginatedProducts.length > 0
+            ? paginatedProducts.map((productItem) => (
+                <AdminProductTile
+                  key={productItem?._id}
+                  setFormData={setFormData}
+                  setOpenCreateProductsDialog={setOpenCreateProductsDialog}
+                  setCurrentEditedId={setCurrentEditedId}
+                  product={productItem}
+                  handleDelete={handleDelete}
+                />
+              ))
+            : null}
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm text-muted-foreground">
+          Showing {filteredProducts.length === 0 ? 0 : startIndex + 1}
+          {" - "}
+          {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of{" "}
+          {filteredProducts.length}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={safeCurrentPage === 1}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+          >
+            Previous
+          </Button>
+          {pageButtons.map((page, index) =>
+            page === "ellipsis" ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="px-2 text-sm text-muted-foreground"
+              >
+                ...
+              </span>
+            ) : (
+              <Button
+                key={page}
+                variant={page === safeCurrentPage ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </Button>
+            )
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={safeCurrentPage === totalPages}
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+            }
+          >
+            Next
+          </Button>
+        </div>
       </div>
       <Sheet
         open={openCreateProductsDialog}
@@ -312,16 +417,16 @@ function AdminProducts() {
             {formData.variants.length > 0 && (
               <div className="mt-8 border-t pt-6">
                 <Label className="text-base font-semibold mb-4 block">
-                  Biến thể sản phẩm (tự động tạo từ Size và Color)
+                  Variants
                 </Label>
                 <div className="overflow-x-auto border rounded-lg">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">Biến thể</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-24">Giá</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500">Variant</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-24">Price</th>
                         <th className="px-3 py-2 text-left font-medium text-gray-500 w-24">Sale</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-20">Kho</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500 w-20">Stock</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
