@@ -1,7 +1,7 @@
 const Order = require("../../models/Order");
 const Cart = require("../../models/Cart");
 const Product = require("../../models/Product");
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeSecretKey = "sk_test_51T5HNsEfNGpDAoXu4eDCQG8qbWclUHDrkXwZk3Gkjn89MwL5wTF7gOHRMSCrtfGfihKb4iuU7Vge7p8ZKHSJx6Pa001GS1Fknu";
 const stripe = stripeSecretKey ? require("stripe")(stripeSecretKey) : null;
 
 const ORDER_CODE_PREFIX = "ORD";
@@ -284,7 +284,7 @@ const capturePayment = async (req, res) => {
     // if (session.payment_status !== 'paid') return res.status(400).json({...})
 
     order.paymentStatus = "paid";
-    order.orderStatus = "confirmed";
+    order.orderStatus = "inProcess";
     order.paymentId = sessionId; // Lưu sessionId của Stripe thay cho paymentId của PayPal
 
     if (!order.stockReserved) {
@@ -296,9 +296,9 @@ const capturePayment = async (req, res) => {
     if (cart) {
       order.cartItems.forEach((orderedItem) => {
         cart.items = cart.items.filter(
-          (cartItem) => 
-            !(cartItem.productId.toString() === orderedItem.productId.toString() && 
-              (cartItem.size || '') === (orderedItem.size || '') && 
+          (cartItem) =>
+            !(cartItem.productId.toString() === orderedItem.productId.toString() &&
+              (cartItem.size || '') === (orderedItem.size || '') &&
               (cartItem.color || '') === (orderedItem.color || ''))
         );
       });
@@ -399,7 +399,7 @@ const checkProductPurchase = async (req, res) => {
     const order = await Order.findOne({
       userId,
       "cartItems.productId": productId,
-      orderStatus: "confirmed",
+      orderStatus: { $in: ["inprocess", "confirmed", "delivered"] },
     });
 
     res.status(200).json({
