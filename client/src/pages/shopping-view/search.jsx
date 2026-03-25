@@ -34,15 +34,11 @@ function SearchProducts() {
     const debounceTimer = setTimeout(() => {
       const trimmedKeyword = keyword.trim();
 
-      if (trimmedKeyword.length > 3) {
+      if (trimmedKeyword.length > 0) {
         setSearchParams(new URLSearchParams(`?keyword=${trimmedKeyword}`));
         dispatch(getSearchResults(trimmedKeyword));
       } else {
-        if (trimmedKeyword.length > 0) {
-          setSearchParams(new URLSearchParams(`?keyword=${trimmedKeyword}`));
-        } else {
-          setSearchParams(new URLSearchParams());
-        }
+        setSearchParams(new URLSearchParams());
         dispatch(resetSearchResults());
       }
     }, 450);
