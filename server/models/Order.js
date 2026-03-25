@@ -37,6 +37,10 @@ const OrderSchema = new mongoose.Schema({
   orderUpdateDate: Date,
   paymentId: String,
   payerId: String,
+  stockReserved: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 module.exports = mongoose.model("Order", OrderSchema);

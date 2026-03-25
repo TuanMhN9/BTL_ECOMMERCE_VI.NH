@@ -267,13 +267,17 @@ function ShoppingUserProfile() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User Settings</CardTitle>
+    <Card className="border-gray-200 shadow-none">
+      <CardHeader className="px-5 pb-3 pt-5 sm:px-6">
+        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.26em] text-gray-900">
+          User Settings
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-8 px-5 pb-6 sm:px-6">
         <div className="space-y-3">
-          <div className="text-sm font-semibold">Personal Information</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-700">
+            Personal Information
+          </div>
           <CommonForm
             formControls={userProfileFormControls}
             formData={formData}
@@ -289,7 +293,7 @@ function ShoppingUserProfile() {
           />
           {profileFeedback && (
             <p
-              className={`text-sm ${
+              className={`text-[11px] tracking-[0.08em] ${
                 profileFeedback.type === "success"
                   ? "text-green-600"
                   : "text-red-600"
@@ -298,25 +302,30 @@ function ShoppingUserProfile() {
               {profileFeedback.text}
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">
             You can update your user name, email, and phone number. At least one of
             user name or email is required.
           </p>
         </div>
 
-        <Separator />
+        <Separator className="bg-gray-200" />
 
         <div className="space-y-4">
-          <div className="text-sm font-semibold">Change Password</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-700">
+            Change Password
+          </div>
           <form onSubmit={handlePasswordSubmit} className="grid gap-3">
             <div className="grid gap-1.5">
-              <Label>Current Password</Label>
+              <Label className="text-[10px] uppercase tracking-[0.16em] text-gray-500">
+                Current Password
+              </Label>
               <Input
                 type="password"
                 value={passwordData.currentPassword}
                 onChange={(event) =>
                   handlePasswordChange("currentPassword", event.target.value)
                 }
+                className="h-10 rounded-none border-x-0 border-t-0 border-b border-gray-300 bg-transparent px-0 text-[11px] tracking-[0.08em] focus-visible:ring-0 focus-visible:border-black"
               />
               {passwordErrors.currentPassword && (
                 <p className="text-[12px] font-medium text-red-500">
@@ -325,13 +334,16 @@ function ShoppingUserProfile() {
               )}
             </div>
             <div className="grid gap-1.5">
-              <Label>New Password</Label>
+              <Label className="text-[10px] uppercase tracking-[0.16em] text-gray-500">
+                New Password
+              </Label>
               <Input
                 type="password"
                 value={passwordData.newPassword}
                 onChange={(event) =>
                   handlePasswordChange("newPassword", event.target.value)
                 }
+                className="h-10 rounded-none border-x-0 border-t-0 border-b border-gray-300 bg-transparent px-0 text-[11px] tracking-[0.08em] focus-visible:ring-0 focus-visible:border-black"
               />
               {passwordErrors.newPassword && (
                 <p className="text-[12px] font-medium text-red-500">
@@ -340,13 +352,16 @@ function ShoppingUserProfile() {
               )}
             </div>
             <div className="grid gap-1.5">
-              <Label>Confirm New Password</Label>
+              <Label className="text-[10px] uppercase tracking-[0.16em] text-gray-500">
+                Confirm New Password
+              </Label>
               <Input
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={(event) =>
                   handlePasswordChange("confirmPassword", event.target.value)
                 }
+                className="h-10 rounded-none border-x-0 border-t-0 border-b border-gray-300 bg-transparent px-0 text-[11px] tracking-[0.08em] focus-visible:ring-0 focus-visible:border-black"
               />
               {passwordErrors.confirmPassword && (
                 <p className="text-[12px] font-medium text-red-500">
@@ -354,12 +369,16 @@ function ShoppingUserProfile() {
                 </p>
               )}
             </div>
-            <Button type="submit" disabled={!canSubmitPassword || isUpdatingPassword}>
+            <Button
+              type="submit"
+              disabled={!canSubmitPassword || isUpdatingPassword}
+              className="mt-2 h-10 rounded-none bg-black text-[10px] font-medium uppercase tracking-[0.24em] text-white hover:bg-gray-800"
+            >
               {isUpdatingPassword ? "Updating..." : "Update Password"}
             </Button>
             {passwordFeedback && (
               <p
-                className={`text-sm ${
+                className={`text-[11px] tracking-[0.08em] ${
                   passwordFeedback.type === "success"
                     ? "text-green-600"
                     : "text-red-600"

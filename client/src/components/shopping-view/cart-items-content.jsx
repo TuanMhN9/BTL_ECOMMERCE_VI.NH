@@ -4,13 +4,19 @@ import { deleteCartItem, updateCartQuantity } from "@/store/shop/cart-slice";
 import { useToast } from "../ui/use-toast";
 import { Checkbox } from "../ui/checkbox";
 import { toggleSelectItem } from "@/store/shop/cart-slice";
+import { useNavigate } from "react-router-dom";
 
-function UserCartItemsContent({ cartItem }) {
+function UserCartItemsContent({
+  cartItem,
+  enableProductNavigation = false,
+  onProductNavigate,
+}) {
   const { user } = useSelector((state) => state.auth);
   const { cartItems, selectedItems = [] } = useSelector((state) => state.shopCart);
   const { productList } = useSelector((state) => state.shopProducts);
   const dispatch = useDispatch();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const itemId = `${cartItem.productId}-${cartItem.size || ''}-${cartItem.color || ''}`;
   const isSelected = (selectedItems || []).includes(itemId);
@@ -18,6 +24,14 @@ function UserCartItemsContent({ cartItem }) {
   const handleToggleSelect = () => {
     dispatch(toggleSelectItem({ id: itemId }));
   };
+
+  function handleNavigateToProduct() {
+    if (!enableProductNavigation || !cartItem?.productId) return;
+    if (typeof onProductNavigate === "function") {
+      onProductNavigate(cartItem);
+    }
+    navigate(`/shop/product/${cartItem.productId}`);
+  }
 
   function handleUpdateQuantity(getCartItem, typeOfAction) {
     if (typeOfAction == "plus") {
@@ -107,24 +121,35 @@ function UserCartItemsContent({ cartItem }) {
       <img
         src={cartItem?.image}
         alt={cartItem?.title}
-        className="h-28 w-24 flex-shrink-0 object-cover bg-[#f5f5f0]"
+        className={`h-28 w-24 flex-shrink-0 object-cover bg-[#f5f5f0] ${
+          enableProductNavigation ? "cursor-pointer" : ""
+        }`}
+        onClick={handleNavigateToProduct}
       />
       <div className="flex-1 min-w-0">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-900 leading-relaxed line-clamp-2">
-          {cartItem?.title}
-        </h3>
-        <div className="mt-2 flex flex-col gap-1">
-          {cartItem?.size ? (
-            <span className="text-[10px] uppercase tracking-[0.12em] text-gray-500">
-              Size {cartItem.size}
-            </span>
-          ) : null}
-          {cartItem?.color ? (
-            <span className="text-[10px] uppercase tracking-[0.12em] text-gray-500">
-              Color {cartItem.color}
-            </span>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          onClick={handleNavigateToProduct}
+          className={`w-full border-none bg-transparent p-0 text-left ${
+            enableProductNavigation ? "cursor-pointer" : ""
+          }`}
+        >
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-900 leading-relaxed line-clamp-2">
+            {cartItem?.title}
+          </h3>
+          <div className="mt-2 flex flex-col gap-1">
+            {cartItem?.size ? (
+              <span className="text-[10px] uppercase tracking-[0.12em] text-gray-500">
+                Size {cartItem.size}
+              </span>
+            ) : null}
+            {cartItem?.color ? (
+              <span className="text-[10px] uppercase tracking-[0.12em] text-gray-500">
+                Color {cartItem.color}
+              </span>
+            ) : null}
+          </div>
+        </button>
         <div className="mt-4 flex items-center gap-4">
           <button
             disabled={cartItem?.quantity === 1}

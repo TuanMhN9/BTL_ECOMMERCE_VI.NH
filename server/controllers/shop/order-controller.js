@@ -56,40 +56,123 @@ async function ensureOrderCode(order) {
   return order;
 }
 
+async function reserveStockForItems(items = [], options = {}) {
+  const { session } = options;
+
+  for (const item of items) {
+    const quantity = Number(item?.quantity) || 0;
+    const productId = item?.productId;
+    const size = String(item?.size || "").trim();
+    const color = String(item?.color || "").trim();
+
+    if (!productId || quantity <= 0) {
+      throw new Error("Invalid cart item data");
+    }
+
+    const product = await Product.findById(productId).session(session || null);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    const hasVariants =
+      Array.isArray(product.variants) && product.variants.length > 0;
+
+    if (hasVariants) {
+      if (!size || !color) {
+        throw new Error("Please select size and color before checkout");
+      }
+
+      const updatedVariantProduct = await Product.findOneAndUpdate(
+        {
+          _id: productId,
+          totalStock: { $gte: quantity },
+          variants: {
+            $elemMatch: {
+              size,
+              color,
+              stock: { $gte: quantity },
+            },
+          },
+        },
+        {
+          $inc: {
+            "variants.$.stock": -quantity,
+            totalStock: -quantity,
+          },
+        },
+        {
+          new: true,
+          session,
+        }
+      );
+
+      if (!updatedVariantProduct) {
+        throw new Error(
+          `Insufficient stock for ${item?.title || "selected variant"}`
+        );
+      }
+
+      continue;
+    }
+
+    const updatedProduct = await Product.findOneAndUpdate(
+      { _id: productId, totalStock: { $gte: quantity } },
+      { $inc: { totalStock: -quantity } },
+      { new: true, session }
+    );
+
+    if (!updatedProduct) {
+      throw new Error(`Insufficient stock for ${item?.title || "product"}`);
+    }
+  }
+}
+
+async function releaseReservedStock(items = []) {
+  for (const item of items) {
+    const quantity = Number(item?.quantity) || 0;
+    const productId = item?.productId;
+    const size = String(item?.size || "").trim();
+    const color = String(item?.color || "").trim();
+
+    if (!productId || quantity <= 0) continue;
+
+    const product = await Product.findById(productId).select("variants");
+    const hasVariants =
+      Array.isArray(product?.variants) && product.variants.length > 0;
+
+    if (hasVariants && size && color) {
+      await Product.findOneAndUpdate(
+        {
+          _id: productId,
+          variants: {
+            $elemMatch: {
+              size,
+              color,
+            },
+          },
+        },
+        {
+          $inc: {
+            "variants.$.stock": quantity,
+            totalStock: quantity,
+          },
+        }
+      );
+      continue;
+    }
+
+    await Product.findByIdAndUpdate(productId, {
+      $inc: { totalStock: quantity },
+    });
+  }
+}
+
 const createOrder = async (req, res) => {
   try {
     const {
       userId, cartItems, addressInfo, orderStatus, totalAmount,
       orderDate, orderUpdateDate, cartId,
     } = req.body;
-
-    const orderCode = await createUniqueOrderCode(orderDate);
-
-    // 1. Lưu đơn hàng vào DB với trạng thái pending
-    const newlyCreatedOrder = new Order({
-      userId,
-      orderCode,
-      cartId,
-      cartItems,
-      addressInfo,
-      orderStatus,
-      paymentMethod: "stripe", // Đổi thành stripe
-      paymentStatus: "pending", totalAmount, orderDate, orderUpdateDate,
-    });
-
-    await newlyCreatedOrder.save();
-
-    // 2. Chuyển đổi cartItems thành định dạng line_items của Stripe
-    const line_items = cartItems.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.title,
-        },
-        unit_amount: Math.round(item.price * 100), // Stripe tính bằng cent (1 USD = 100 cents)
-      },
-      quantity: item.quantity,
-    }));
 
     if (!stripe) {
       return res.status(500).json({
@@ -98,26 +181,93 @@ const createOrder = async (req, res) => {
       });
     }
 
-    // 3. Tạo Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: line_items,
-      mode: "payment",
-      // Truyền orderId vào URL để lúc Return về Frontend có thể lấy được
-      success_url: `http://localhost:5173/shop/stripe-return?orderId=${newlyCreatedOrder._id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: "http://localhost:5173/shop/stripe-cancel",
-    });
+    if (!userId || !Array.isArray(cartItems) || cartItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order data",
+      });
+    }
+
+    const orderCode = await createUniqueOrderCode(orderDate);
+    let stripeSession = null;
+    let newlyCreatedOrder = null;
+    const reservedItems = [];
+
+    try {
+      for (const cartItem of cartItems) {
+        await reserveStockForItems([cartItem]);
+        reservedItems.push(cartItem);
+      }
+
+      newlyCreatedOrder = new Order({
+        userId,
+        orderCode,
+        cartId,
+        cartItems,
+        addressInfo,
+        orderStatus,
+        paymentMethod: "stripe",
+        paymentStatus: "pending",
+        totalAmount,
+        orderDate,
+        orderUpdateDate,
+        stockReserved: true,
+      });
+
+      await newlyCreatedOrder.save();
+
+      // 2. Chuyển đổi cartItems thành định dạng line_items của Stripe
+      const line_items = cartItems.map((item) => ({
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: item.title,
+          },
+          unit_amount: Math.round(Number(item.price || 0) * 100),
+        },
+        quantity: item.quantity,
+      }));
+
+      // 3. Tạo Stripe Checkout Session
+      stripeSession = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: line_items,
+        mode: "payment",
+        success_url: `http://localhost:5173/shop/stripe-return?orderId=${newlyCreatedOrder._id}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: "http://localhost:5173/shop/stripe-cancel",
+      });
+    } catch (processingError) {
+      if (reservedItems.length > 0) {
+        await releaseReservedStock(reservedItems);
+      }
+      if (newlyCreatedOrder?._id) {
+        await Order.findByIdAndDelete(newlyCreatedOrder._id);
+      }
+      throw processingError;
+    }
 
     // 4. Trả URL về cho Frontend
     res.status(201).json({
       success: true,
-      approvalURL: session.url, // Đưa URL của Stripe vào biến approvalURL
+      approvalURL: stripeSession.url,
       orderId: newlyCreatedOrder._id,
     });
 
   } catch (e) {
     console.log(e);
-    res.status(500).json({ success: false, message: "Lỗi tạo đơn hàng Stripe!" });
+    const knownStockError =
+      typeof e?.message === "string" &&
+      (e.message.includes("Insufficient stock") ||
+        e.message.includes("Please select size and color") ||
+        e.message.includes("Invalid cart item data") ||
+        e.message.includes("Product not found"));
+
+    res.status(knownStockError ? 400 : 500).json({
+      success: false,
+      message: knownStockError
+        ? e.message
+        : "Lỗi tạo đơn hàng Stripe!",
+    });
   }
 };
 
@@ -137,29 +287,9 @@ const capturePayment = async (req, res) => {
     order.orderStatus = "confirmed";
     order.paymentId = sessionId; // Lưu sessionId của Stripe thay cho paymentId của PayPal
 
-    // Trừ stock và xóa giỏ hàng
-    for (let item of order.cartItems) {
-      if (item.size && item.color) {
-        // Trừ kho variant
-        const product = await Product.findById(item.productId);
-        if (product && product.variants) {
-          const variant = product.variants.find(v => v.size === item.size && v.color === item.color);
-          if (variant && variant.stock >= item.quantity) {
-            variant.stock -= item.quantity;
-            product.totalStock = Math.max(0, product.totalStock - item.quantity);
-            await product.save();
-          } else {
-            console.log(`Warning: Insufficient stock for variant ${item.size} ${item.color} of ${item.title}`);
-          }
-        }
-      } else {
-        // Trừ kho bình thường (không có variant)
-        let product = await Product.findById(item.productId);
-        if (product) {
-          product.totalStock = Math.max(0, product.totalStock - item.quantity);
-          await product.save();
-        }
-      }
+    if (!order.stockReserved) {
+      await reserveStockForItems(order.cartItems);
+      order.stockReserved = true;
     }
 
     const cart = await Cart.findById(order.cartId);
@@ -188,7 +318,17 @@ const capturePayment = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    res.status(500).json({ success: false, message: "Lỗi xác nhận thanh toán!" });
+    const knownStockError =
+      typeof e?.message === "string" &&
+      (e.message.includes("Insufficient stock") ||
+        e.message.includes("Please select size and color") ||
+        e.message.includes("Invalid cart item data") ||
+        e.message.includes("Product not found"));
+
+    res.status(knownStockError ? 400 : 500).json({
+      success: false,
+      message: knownStockError ? e.message : "Lỗi xác nhận thanh toán!",
+    });
   }
 };
 

@@ -79,7 +79,12 @@ function UserCartWrapper({ cartItems, setOpenCartSheet }) {
 
               <div className="space-y-6">
                 {cartItems.map((item, idx) => (
-                  <UserCartItemsContent key={idx} cartItem={item} />
+                  <UserCartItemsContent
+                    key={idx}
+                    cartItem={item}
+                    enableProductNavigation
+                    onProductNavigate={() => setOpenCartSheet(false)}
+                  />
                 ))}
               </div>
             </>

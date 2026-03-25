@@ -40,18 +40,28 @@ function ShoppingOrders() {
   console.log(orderDetails, "orderDetails");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Order History</CardTitle>
+    <Card className="border-gray-200 shadow-none">
+      <CardHeader className="px-5 pb-3 pt-5 sm:px-6">
+        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.26em] text-gray-900">
+          Order History
+        </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5 pb-5 sm:px-6">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Order Code</TableHead>
-              <TableHead>Order Date</TableHead>
-              <TableHead>Order Status</TableHead>
-              <TableHead>Order Price</TableHead>
+            <TableRow className="border-b border-gray-200">
+              <TableHead className="h-10 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">
+                Order Code
+              </TableHead>
+              <TableHead className="h-10 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">
+                Order Date
+              </TableHead>
+              <TableHead className="h-10 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">
+                Order Status
+              </TableHead>
+              <TableHead className="h-10 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">
+                Order Price
+              </TableHead>
               <TableHead>
                 <span className="sr-only">Details</span>
               </TableHead>
@@ -60,23 +70,29 @@ function ShoppingOrders() {
           <TableBody>
             {orderList && orderList.length > 0
               ? orderList.map((orderItem) => (
-                  <TableRow>
-                    <TableCell>{orderItem?.orderCode || "—"}</TableCell>
-                    <TableCell>{orderItem?.orderDate.split("T")[0]}</TableCell>
+                  <TableRow key={orderItem?._id} className="border-b border-gray-100">
+                    <TableCell className="py-3 text-[11px] uppercase tracking-[0.14em] text-gray-800">
+                      {orderItem?.orderCode || "—"}
+                    </TableCell>
+                    <TableCell className="py-3 text-[11px] tracking-[0.1em] text-gray-600">
+                      {orderItem?.orderDate?.split("T")?.[0] || "—"}
+                    </TableCell>
                     <TableCell>
                       <Badge
-                        className={`py-1 px-3 ${
+                        className={`rounded-full px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] ${
                           orderItem?.orderStatus === "confirmed"
-                            ? "bg-green-500"
+                            ? "bg-green-600"
                             : orderItem?.orderStatus === "rejected"
                             ? "bg-red-600"
-                            : "bg-black"
+                            : "bg-gray-900"
                         }`}
                       >
                         {orderItem?.orderStatus}
                       </Badge>
                     </TableCell>
-                    <TableCell>${orderItem?.totalAmount}</TableCell>
+                    <TableCell className="py-3 text-[11px] tracking-[0.1em] text-gray-900">
+                      ${orderItem?.totalAmount}
+                    </TableCell>
                     <TableCell>
                       <Dialog
                         open={openDetailsDialog}
@@ -89,6 +105,7 @@ function ShoppingOrders() {
                           onClick={() =>
                             handleFetchOrderDetails(orderItem?._id)
                           }
+                          className="h-8 rounded-none bg-black px-4 text-[10px] font-medium uppercase tracking-[0.2em] text-white hover:bg-gray-800"
                         >
                           View Details
                         </Button>
@@ -97,7 +114,16 @@ function ShoppingOrders() {
                     </TableCell>
                   </TableRow>
                 ))
-              : null}
+              : (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="py-10 text-center text-[10px] uppercase tracking-[0.22em] text-gray-400"
+                  >
+                    No orders yet
+                  </TableCell>
+                </TableRow>
+              )}
           </TableBody>
         </Table>
       </CardContent>

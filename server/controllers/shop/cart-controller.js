@@ -1,6 +1,62 @@
 const Cart = require("../../models/Cart");
 const Product = require("../../models/Product");
 
+const normalizeValue = (value) => String(value || "").trim().toLowerCase();
+
+const resolveAvailableStock = (product, { variantId, size, color }) => {
+  if (!product) {
+    return { ok: false, message: "Product not found", stock: 0, variant: null };
+  }
+
+  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+  if (!hasVariants) {
+    return {
+      ok: true,
+      stock: Number(product.totalStock) || 0,
+      variant: null,
+    };
+  }
+
+  let targetVariant = null;
+
+  if (variantId) {
+    targetVariant = product.variants.id(variantId);
+  } else {
+    const normalizedSize = normalizeValue(size);
+    const normalizedColor = normalizeValue(color);
+
+    if (!normalizedSize || !normalizedColor) {
+      return {
+        ok: false,
+        message: "Please select both size and color",
+        stock: 0,
+        variant: null,
+      };
+    }
+
+    targetVariant = product.variants.find(
+      (variant) =>
+        normalizeValue(variant.size) === normalizedSize &&
+        normalizeValue(variant.color) === normalizedColor
+    );
+  }
+
+  if (!targetVariant) {
+    return {
+      ok: false,
+      message: "Selected variant is unavailable",
+      stock: 0,
+      variant: null,
+    };
+  }
+
+  return {
+    ok: true,
+    stock: Number(targetVariant.stock) || 0,
+    variant: targetVariant,
+  };
+};
+
 const addToCart = async (req, res) => {
   try {
     const { userId, productId, quantity, size, color } = req.body;
@@ -21,6 +77,17 @@ const addToCart = async (req, res) => {
       });
     }
 
+    const stockResult = resolveAvailableStock(product, { size, color });
+    if (!stockResult.ok) {
+      return res.status(400).json({
+        success: false,
+        message: stockResult.message,
+      });
+    }
+
+    const selectedSize = stockResult?.variant?.size || size;
+    const selectedColor = stockResult?.variant?.color || color;
+
     let cart = await Cart.findOne({ userId });
 
     if (!cart) {
@@ -30,7 +97,8 @@ const addToCart = async (req, res) => {
     const findCurrentProductIndex = cart.items.findIndex(
       (item) =>
         item.productId.toString() === productId &&
-        item.size === size && item.color === color
+        normalizeValue(item.size) === normalizeValue(selectedSize) &&
+        normalizeValue(item.color) === normalizeValue(selectedColor)
     );
 
     let currentCartQuantity = 0;
@@ -38,11 +106,7 @@ const addToCart = async (req, res) => {
       currentCartQuantity = cart.items[findCurrentProductIndex].quantity;
     }
 
-    let checkStock = product.totalStock;
-    if (size && color && product.variants && product.variants.length > 0) {
-      const variant = product.variants.find(v => v.size === size && v.color === color);
-      if (variant) checkStock = variant.stock;
-    }
+    const checkStock = stockResult.stock;
 
     if (currentCartQuantity + quantity > checkStock) {
       return res.status(400).json({
@@ -52,7 +116,12 @@ const addToCart = async (req, res) => {
     }
 
     if (findCurrentProductIndex === -1) {
-      cart.items.push({ productId, quantity, size, color });
+      cart.items.push({
+        productId,
+        quantity,
+        size: selectedSize,
+        color: selectedColor,
+      });
     } else {
       cart.items[findCurrentProductIndex].quantity += quantity;
     }
@@ -169,7 +238,10 @@ const updateCartItemQty = async (req, res) => {
     const findCurrentProductIndex = cart.items.findIndex(
       (item) =>
         item.productId.toString() === productId &&
-        (variantId ? item.variantId?.toString() === variantId : (item.size === size && item.color === color))
+        (variantId
+          ? item.variantId?.toString() === variantId
+          : normalizeValue(item.size) === normalizeValue(size) &&
+            normalizeValue(item.color) === normalizeValue(color))
     );
 
     if (findCurrentProductIndex === -1) {
@@ -179,11 +251,21 @@ const updateCartItemQty = async (req, res) => {
       });
     }
 
-    let checkStock = product.totalStock;
-    if (variantId && product.variants && product.variants.length > 0) {
-      const variant = product.variants.id(variantId);
-      if (variant) checkStock = variant.stock;
+    const currentCartItem = cart.items[findCurrentProductIndex];
+    const stockResult = resolveAvailableStock(product, {
+      variantId: variantId || currentCartItem?.variantId,
+      size: size || currentCartItem?.size,
+      color: color || currentCartItem?.color,
+    });
+
+    if (!stockResult.ok) {
+      return res.status(400).json({
+        success: false,
+        message: stockResult.message,
+      });
     }
+
+    const checkStock = stockResult.stock;
 
     if (quantity > checkStock) {
       return res.status(400).json({
