@@ -2,7 +2,7 @@ import { StarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart, fetchCartItems } from "@/store/shop/cart-slice";
+import { addToCart, fetchCartItems, setCheckoutItems, setBuyNowItems } from "@/store/shop/cart-slice";
 import { useToast } from "@/components/ui/use-toast";
 import {
   fetchProductDetails,
@@ -211,6 +211,63 @@ function ProductDetailPage() {
         });
       }
     });
+  }
+
+  function handleBuyNow() {
+    const isSizeMissing =
+      productDetails?.sizes?.length > 0 && !selectedSize;
+    const isColorMissing =
+      productDetails?.colors?.length > 0 && !selectedColor;
+
+    if (isSizeMissing || isColorMissing) {
+      toast({
+        title: `Please select ${
+          isSizeMissing && isColorMissing
+            ? "size and color"
+            : isSizeMissing
+            ? "a size"
+            : "a color"
+        }`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const targetStock = currentVariant
+      ? currentVariant.stock
+      : productDetails?.totalStock;
+
+    if (targetStock <= 0) {
+      toast({ title: "This variant is out of stock", variant: "destructive" });
+      return;
+    }
+
+    const getCartItems = cartItems?.items || [];
+    const existingItem = getCartItems.find(
+      (item) =>
+        item.productId === productDetails._id &&
+        item.size === selectedSize &&
+        item.color === selectedColor
+    );
+    if (existingItem && existingItem.quantity + 1 > targetStock) {
+      toast({
+        title: `Only ${targetStock} available for this variant`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const itemKey = `${productDetails._id}-${selectedSize || ""}-${selectedColor || ""}`;
+    const buyNowItem = {
+      productId: productDetails._id,
+      quantity: 1,
+      size: selectedSize,
+      color: selectedColor
+    };
+
+    dispatch(setBuyNowItems([buyNowItem]));
+    dispatch(setCheckoutItems([itemKey]));
+    navigate("/shop/checkout");
   }
 
   function handleAddReview() {
@@ -474,7 +531,7 @@ function ProductDetailPage() {
               </p>
             )}
 
-            {/* Add to Bag */}
+            {/* Add to Bag and Buy Now */}
             {isOutOfStock ? (
               <button
                 disabled
@@ -483,12 +540,20 @@ function ProductDetailPage() {
                 Out of Stock
               </button>
             ) : (
-              <button
-                onClick={handleAddToCart}
-                className="w-full py-4 bg-black text-white text-[11px] font-semibold uppercase tracking-[0.3em] hover:bg-gray-800 transition-all duration-300 border-none cursor-pointer"
-              >
-                Add to Bag
-              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex-1 py-4 bg-white text-black border border-black text-[11px] font-semibold uppercase tracking-[0.3em] hover:bg-gray-100 transition-all duration-300 cursor-pointer"
+                >
+                  Add to Bag
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  className="flex-1 py-4 bg-black text-white text-[11px] font-semibold uppercase tracking-[0.3em] hover:bg-gray-800 transition-all duration-300 border-none cursor-pointer"
+                >
+                  Buy Now
+                </button>
+              </div>
             )}
 
             {/* Links */}

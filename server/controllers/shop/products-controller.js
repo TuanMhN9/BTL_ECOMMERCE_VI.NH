@@ -187,38 +187,18 @@ const getSaleProducts = async (req, res) => {
       filters.category = category;
     }
 
-    // 3. Get manually selected sale items (isSaleItem)
-    let manualSaleItems = await Product.find({ ...filters, isSaleItem: true })
+    const dynamicSaleQuery = {
+      ...filters,
+      $or: [
+        { salePrice: { $gt: 0 } },
+        { _id: { $in: promoProductIds } },
+        { category: { $in: promoCategories } }
+      ]
+    };
+
+    const finalProducts = await Product.find(dynamicSaleQuery)
       .sort({ updatedAt: -1 })
       .limit(8);
-
-    let finalProducts = [...manualSaleItems];
-
-    // 4. Fill remaining slots with products that satisfy:
-    //    a) Have a salePrice > 0 stored in DB
-    //    b) OR are explicitly linked in an active promotion
-    //    c) OR belong to a category linked in an active promotion
-    if (finalProducts.length < 8) {
-      const remainingCount = 8 - finalProducts.length;
-      const manualIds = manualSaleItems.map(p => p._id);
-
-      const dynamicSaleQuery = {
-        ...filters,
-        isSaleItem: { $ne: true },
-        _id: { $nin: manualIds },
-        $or: [
-          { salePrice: { $gt: 0 } },
-          { _id: { $in: promoProductIds } },
-          { category: { $in: promoCategories } }
-        ]
-      };
-
-      const computedSales = await Product.find(dynamicSaleQuery)
-        .sort({ updatedAt: -1 })
-        .limit(remainingCount);
-
-      finalProducts = [...finalProducts, ...computedSales];
-    }
 
     // Enrich with active automatic promotions (to calculate the actual display price)
     const enrichedProducts = await enrichProductsWithAutomaticPromotions(finalProducts);

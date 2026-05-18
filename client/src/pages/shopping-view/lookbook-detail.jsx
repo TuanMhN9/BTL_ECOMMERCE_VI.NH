@@ -2,7 +2,11 @@ import {
   fetchLookbookDetails,
   resetLookbookDetails,
 } from "@/store/shop/lookbook-slice";
-import { useEffect } from "react";
+import { addToCart, fetchCartItems, setCheckoutItems, setBuyNowItems } from "@/store/shop/cart-slice";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { ShoppingBag } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -11,6 +15,9 @@ function ShoppingLookbookDetail() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { lookbookDetails, isLoading } = useSelector((state) => state.shopLookbook);
+  const { user } = useSelector((state) => state.auth);
+  const { toast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -41,6 +48,53 @@ function ShoppingLookbookDetail() {
 
   const products = lookbookDetails.products || [];
 
+  const handleBuyAll = async () => {
+    if (!user) {
+      toast({ title: "Please login to add to cart", variant: "destructive" });
+      return;
+    }
+    if (products.length === 0) return;
+
+    setIsAdding(true);
+    let successCount = 0;
+    
+    try {
+      const addedKeys = [];
+      const buyNowItemsArr = [];
+      
+      products.forEach((product) => {
+        let selectedSize = "";
+        let selectedColor = "";
+        
+        if (product.variants && product.variants.length > 0) {
+          const availableVariant = product.variants.find(v => v.stock > 0) || product.variants[0];
+          selectedSize = availableVariant.size;
+          selectedColor = availableVariant.color;
+        }
+
+        addedKeys.push(`${product._id}-${selectedSize}-${selectedColor}`);
+        buyNowItemsArr.push({
+          productId: product._id,
+          quantity: 1,
+          size: selectedSize,
+          color: selectedColor
+        });
+      });
+
+      if (buyNowItemsArr.length > 0) {
+        dispatch(setBuyNowItems(buyNowItemsArr));
+        dispatch(setCheckoutItems(addedKeys));
+        navigate("/shop/checkout");
+      } else {
+        toast({ title: "Failed to add items to cart", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error adding items", variant: "destructive" });
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-56px)] bg-white">
       <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-2">
@@ -65,10 +119,24 @@ function ShoppingLookbookDetail() {
         </div>
 
         <div className="bg-white p-6 lg:p-12">
-          <div className="mb-12">
-             <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-1">Shop The Look</h2>
-             <div className="h-1 w-12 bg-sky-500 rounded-full"></div>
-             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-4">Discover the items featured in this collection</p>
+          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+             <div>
+               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-1">Shop The Look</h2>
+               <div className="h-1 w-12 bg-sky-500 rounded-full"></div>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-4">Discover the items featured in this collection</p>
+             </div>
+             {products.length > 0 && (
+               <Button 
+                 onClick={handleBuyAll}
+                 disabled={isAdding}
+                 className="bg-slate-900 text-white rounded-full px-8 py-6 hover:bg-sky-600 transition-all shadow-xl hover:shadow-sky-500/30 flex items-center gap-3 group"
+               >
+                 <ShoppingBag className="w-5 h-5 group-hover:animate-bounce" />
+                 <span className="font-bold tracking-widest uppercase text-xs">
+                   {isAdding ? "Adding..." : "Buy All (5% OFF)"}
+                 </span>
+               </Button>
+             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8">

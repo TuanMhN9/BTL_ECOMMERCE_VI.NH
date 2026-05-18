@@ -1,6 +1,6 @@
 import { Minus, Plus, Trash } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteCartItem, updateCartQuantity, toggleSelectItem, toggleCheckoutSelectItem, togglePayingItem } from "@/store/shop/cart-slice";
+import { deleteCartItem, updateCartQuantity, toggleSelectItem, toggleCheckoutSelectItem, togglePayingItem, updateBuyNowQuantity, removeBuyNowItem } from "@/store/shop/cart-slice";
 import { useToast } from "../ui/use-toast";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
@@ -15,7 +15,7 @@ function UserCartItemsContent({
   isCheckoutPage = false,
 }) {
   const { user } = useSelector((state) => state.auth);
-  const { cartItems, selectedItems = [], payingItems = [] } = useSelector((state) => state.shopCart);
+  const { cartItems, selectedItems = [], payingItems = [], buyNowItems = [] } = useSelector((state) => state.shopCart);
   const { productList } = useSelector((state) => state.shopProducts);
   const dispatch = useDispatch();
   const { toast } = useToast();
@@ -77,8 +77,8 @@ function UserCartItemsContent({
           }
         }
 
-        if (indexOfCurrentCartItem > -1 && maxStock !== null) {
-          const getQuantity = getCartItems[indexOfCurrentCartItem].quantity;
+        if (maxStock !== null) {
+          const getQuantity = getCartItem?.quantity;
           if (getQuantity + 1 > maxStock) {
             toast({
               title: `Only ${maxStock} quantity available for this item`,
@@ -90,16 +90,26 @@ function UserCartItemsContent({
       }
     }
 
+    const newQuantity = typeOfAction === "plus" ? getCartItem?.quantity + 1 : getCartItem?.quantity - 1;
+
+    if (isCheckoutPage && buyNowItems && buyNowItems.length > 0) {
+       dispatch(updateBuyNowQuantity({
+         productId: pId,
+         size: getCartItem?.size,
+         color: getCartItem?.color,
+         quantity: newQuantity
+       }));
+       toast({ title: "Cart item updated successfully" });
+       return;
+    }
+
     dispatch(
       updateCartQuantity({
         userId: user?.id,
         productId: pId,
         size: getCartItem?.size,
         color: getCartItem?.color,
-        quantity:
-          typeOfAction === "plus"
-            ? getCartItem?.quantity + 1
-            : getCartItem?.quantity - 1,
+        quantity: newQuantity,
       })
     ).then((data) => {
       if (data?.payload?.success) {
@@ -154,6 +164,17 @@ function UserCartItemsContent({
 
     if (quantity === getCartItem?.quantity) return;
 
+    if (isCheckoutPage && buyNowItems && buyNowItems.length > 0) {
+       dispatch(updateBuyNowQuantity({
+         productId: pId,
+         size: getCartItem?.size,
+         color: getCartItem?.color,
+         quantity: quantity
+       }));
+       toast({ title: "Cart item updated successfully" });
+       return;
+    }
+
     dispatch(
       updateCartQuantity({
         userId: user?.id,
@@ -177,6 +198,13 @@ function UserCartItemsContent({
 
   function handleCartItemDelete(getCartItem) {
     if (isCheckoutPage) {
+      if (isCheckoutPage && buyNowItems && buyNowItems.length > 0) {
+         dispatch(removeBuyNowItem({
+           productId: pId,
+           size: getCartItem?.size,
+           color: getCartItem?.color
+         }));
+      }
       dispatch(toggleCheckoutSelectItem({ id: itemId }));
       return;
     }

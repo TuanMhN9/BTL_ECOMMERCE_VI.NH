@@ -10,7 +10,7 @@ const initialState = {
 };
 
 const EMAIL_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9.]*[a-zA-Z0-9])?@gmail\.com$/;
-const USERNAME_REGEX = /^[a-zA-ZÀ-ỹ\s_]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9À-ỹ\s_.-]+$/;
 
 function validateLoginField(name, value) {
   const errors = [];

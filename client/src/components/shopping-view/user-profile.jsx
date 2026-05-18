@@ -9,7 +9,7 @@ import { Separator } from "../ui/separator";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^0\d{9}$/;
 const FULLNAME_REGEX = /^[a-zA-ZÀ-ỹÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴáàảãạăắằẳẵặâấầẩẫậđéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ\s]+$/;
-const USERNAME_REGEX = /^[a-zA-ZÀ-ỹ\s_]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9À-ỹ\s_.-]+$/;
 
 const initialUserFormData = {
   fullName: "",
@@ -123,7 +123,7 @@ function ShoppingUserProfile() {
         const v = String(value || "").trim();
         const hasEmail = String(currentForm?.email || "").trim() !== "";
         if (!v && !hasEmail) return "Cần nhập Tên người dùng hoặc Email";
-        if (v && !USERNAME_REGEX.test(v)) return "Chỉ chứa chữ cái (có dấu), khoảng trắng và gạch dưới";
+        if (v && !USERNAME_REGEX.test(v)) return "Chỉ chứa chữ cái, số, khoảng trắng, gạch dưới, gạch ngang và dấu chấm";
         if (v && v.length < 3) return "Tên người dùng phải có ít nhất 3 ký tự";
         return null;
       }

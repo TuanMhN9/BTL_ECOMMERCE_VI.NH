@@ -3,7 +3,7 @@ import bannerImg from "@/assets/photo_for_homepage.avif";
 import { useDispatch, useSelector } from "react-redux";
 import UserCartItemsContent from "@/components/shopping-view/cart-items-content";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { createNewOrder } from "@/store/shop/order-slice";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,8 +15,10 @@ import { CreditCard, Truck, QrCode } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   fetchCartItems,
+  fetchPreviewCartItems,
   clearCheckoutItems,
-  selectAllPayingItems
+  selectAllPayingItems,
+  clearBuyNowItems
 } from "@/store/shop/cart-slice";
 
 // Cấu hình ngân hàng cho QR Code (VietQR)
@@ -28,7 +30,7 @@ const BANK_CONFIG = {
 };
 
 function ShoppingCheckout() {
-  const { cartItems, checkoutItems = [], payingItems = [] } = useSelector((state) => state.shopCart);
+  const { cartItems, checkoutItems = [], payingItems = [], buyNowItems = [], buyNowCartData = null } = useSelector((state) => state.shopCart);
   const { user } = useSelector((state) => state.auth);
   const { approvalURL } = useSelector((state) => state.shopOrder);
   const [currentSelectedAddress, setCurrentSelectedAddress] = useState(null);
@@ -36,9 +38,13 @@ function ShoppingCheckout() {
   const [paymentMethod, setPaymentMethod] = useState("stripe");
   const [voucherCode, setVoucherCode] = useState("");
   const [availableVouchers, setAvailableVouchers] = useState([]);
+  // Flag to suppress the fetch-effect during post-order cleanup (prevents phantom cart items)
+  const isOrderingRef = useRef(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const displayCartItems = (buyNowItems && buyNowItems.length > 0) ? buyNowCartData : cartItems;
 
   useEffect(() => {
     if (user?.id) {
@@ -53,6 +59,7 @@ function ShoppingCheckout() {
 
     return () => {
       dispatch(clearCheckoutItems());
+      dispatch(clearBuyNowItems());
     };
   }, [dispatch, user?.id]);
 
@@ -67,22 +74,35 @@ function ShoppingCheckout() {
   };
 
   useEffect(() => {
-    if (user?.id && cartItems?.items?.length > 0) {
-      const appliedCode = cartItems.calculations?.voucherDetails?.code || null;
-      dispatch(fetchCartItems({
-        userId: user.id,
-        voucherCode: appliedCode,
-        selectedItems: payingItems
-      }));
+    // Do NOT run this effect during the post-order cleanup phase
+    if (isOrderingRef.current) return;
+
+    if (user?.id) {
+      const appliedCode = displayCartItems?.calculations?.voucherDetails?.code || null;
+      if (buyNowItems && buyNowItems.length > 0) {
+        // Lookbook / Buy-Now flow: use preview endpoint (never touches DB cart)
+        dispatch(fetchPreviewCartItems({
+          userId: user.id,
+          voucherCode: appliedCode,
+          items: buyNowItems
+        }));
+      } else if (buyNowItems.length === 0 && checkoutItems.length > 0) {
+        // Normal cart flow: only fetch when there are actual checkout items
+        dispatch(fetchCartItems({
+          userId: user.id,
+          voucherCode: appliedCode,
+          selectedItems: payingItems
+        }));
+      }
     }
-  }, [payingItems, dispatch, user?.id]);
+  }, [payingItems, buyNowItems, dispatch, user?.id]);
 
   function getItemKey(item) {
     const pId = item.productId && typeof item.productId === 'object' ? item.productId._id : item.productId;
     return `${pId}-${item.size || ''}-${item.color || ''}`;
   }
 
-  const sessionItems = (cartItems?.items || []).filter(item =>
+  const sessionItems = (displayCartItems?.items || []).filter(item =>
     (checkoutItems || []).includes(getItemKey(item))
   );
 
@@ -100,12 +120,16 @@ function ShoppingCheckout() {
     0
   );
 
-  const appliedCalculations = cartItems && cartItems.calculations ? cartItems.calculations : null;
+  const appliedCalculations = displayCartItems && displayCartItems.calculations ? displayCartItems.calculations : null;
   const discountAmount = appliedCalculations?.discountTotal || 0;
   const finalAmount = Math.max(0, totalCartAmount - discountAmount);
 
   const applyVoucher = () => {
-    dispatch(fetchCartItems({ userId: user?.id, voucherCode, selectedItems: payingItems }));
+    if (buyNowItems && buyNowItems.length > 0) {
+      dispatch(fetchPreviewCartItems({ userId: user?.id, voucherCode, items: buyNowItems }));
+    } else {
+      dispatch(fetchCartItems({ userId: user?.id, voucherCode, selectedItems: payingItems }));
+    }
   };
 
   function handleCheckout() {
@@ -126,7 +150,7 @@ function ShoppingCheckout() {
 
     const orderData = {
       userId: user?.id,
-      cartId: cartItems?._id,
+      cartId: displayCartItems?._id,
       cartItems: itemsToPay.map((singleCartItem) => ({
         productId: singleCartItem?.productId?._id || singleCartItem?.productId,
         title: singleCartItem?.title,
@@ -168,16 +192,25 @@ function ShoppingCheckout() {
     dispatch(createNewOrder(orderData)).then((data) => {
       if (data?.payload?.success) {
         if (paymentMethod === "stripe") {
-            setIsPaymemntStart(true);
+          setIsPaymemntStart(true);
         } else {
-            toast({
-                title: data.payload.message || "Order placed successfully!",
-            });
-            if (user?.id) {
-                dispatch(fetchCartItems({ userId: user?.id }));
-                dispatch(clearCheckoutItems());
+          toast({
+            title: data.payload.message || "Order placed successfully!",
+          });
+          // Set flag BEFORE clearing state to prevent the fetch-effect
+          // from firing with stale checkoutItems after buyNowItems is cleared
+          isOrderingRef.current = true;
+          if (user?.id) {
+            if (buyNowItems && buyNowItems.length > 0) {
+              // Lookbook flow: just clear the temporary buy-now state
+              dispatch(clearBuyNowItems());
+            } else {
+              // Normal cart flow: refresh cart from DB after items were removed server-side
+              dispatch(fetchCartItems({ userId: user?.id }));
             }
-            navigate("/shop/account");
+            dispatch(clearCheckoutItems());
+          }
+          navigate("/shop/account");
         }
       } else {
         setIsPaymemntStart(false);
@@ -351,7 +384,11 @@ function ShoppingCheckout() {
                           className={`text-[10px] h-7 px-3 ${isEligible ? 'bg-black text-white hover:bg-gray-800' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                           onClick={() => {
                             setVoucherCode(v.code);
-                            dispatch(fetchCartItems({ userId: user?.id, voucherCode: v.code, selectedItems: payingItems }));
+                            if (buyNowItems && buyNowItems.length > 0) {
+                               dispatch(fetchPreviewCartItems({ userId: user?.id, voucherCode: v.code, items: buyNowItems }));
+                            } else {
+                               dispatch(fetchCartItems({ userId: user?.id, voucherCode: v.code, selectedItems: payingItems }));
+                            }
                           }}>
                           Dùng
                         </Button>
@@ -371,8 +408,8 @@ function ShoppingCheckout() {
               <Button onClick={applyVoucher} variant="outline" className="bg-white">Áp dụng</Button>
             </div>
 
-            {cartItems?.voucherError ? (
-              <p className="text-red-500 text-sm">{cartItems.voucherError}</p>
+            {displayCartItems?.voucherError ? (
+              <p className="text-red-500 text-sm">{displayCartItems.voucherError}</p>
             ) : null}
 
             {appliedCalculations?.appliedPromotions?.length > 0 && (
@@ -386,7 +423,11 @@ function ShoppingCheckout() {
                   size="sm"
                   onClick={() => {
                     setVoucherCode("");
-                    dispatch(fetchCartItems({ userId: user?.id, selectedItems: payingItems }));
+                    if (buyNowItems && buyNowItems.length > 0) {
+                       dispatch(fetchPreviewCartItems({ userId: user?.id, items: buyNowItems }));
+                    } else {
+                       dispatch(fetchCartItems({ userId: user?.id, selectedItems: payingItems }));
+                    }
                   }}
                   className="h-6 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 bg-white border border-red-200"
                 >

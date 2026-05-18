@@ -62,10 +62,10 @@ function CommonForm({
             <SelectContent>
               {getControlItem.options && getControlItem.options.length > 0
                 ? getControlItem.options.map((optionItem) => (
-                    <SelectItem key={optionItem.id} value={optionItem.id}>
-                      {optionItem.label}
-                    </SelectItem>
-                  ))
+                  <SelectItem key={optionItem.id} value={optionItem.id}>
+                    {optionItem.label}
+                  </SelectItem>
+                ))
                 : null}
             </SelectContent>
           </Select>
@@ -118,36 +118,36 @@ function CommonForm({
           <div className="flex flex-wrap gap-3 mt-1">
             {getControlItem.options && getControlItem.options.length > 0
               ? getControlItem.options.map((optionItem) => (
-                  <div
-                    key={optionItem.id}
-                    className="flex items-center space-x-2 bg-secondary/20 p-2 rounded-md border border-muted hover:bg-secondary/40 transition-colors cursor-pointer"
-                    onClick={() => {
-                      const newValue = currentCheckboxValues.includes(
-                        optionItem.id
+                <div
+                  key={optionItem.id}
+                  className="flex items-center space-x-2 bg-secondary/20 p-2 rounded-md border border-muted hover:bg-secondary/40 transition-colors cursor-pointer"
+                  onClick={() => {
+                    const newValue = currentCheckboxValues.includes(
+                      optionItem.id
+                    )
+                      ? currentCheckboxValues.filter(
+                        (v) => v !== optionItem.id
                       )
-                        ? currentCheckboxValues.filter(
-                            (v) => v !== optionItem.id
-                          )
-                        : [...currentCheckboxValues, optionItem.id];
-                      setFormData({
-                        ...formData,
-                        [getControlItem.name]: newValue,
-                      });
-                    }}
+                      : [...currentCheckboxValues, optionItem.id];
+                    setFormData({
+                      ...formData,
+                      [getControlItem.name]: newValue,
+                    });
+                  }}
+                >
+                  <Checkbox
+                    id={`${getControlItem.name}-${optionItem.id}`}
+                    checked={currentCheckboxValues.includes(optionItem.id)}
+                    onCheckedChange={() => { }} // Controlled by div onClick for better hit area
+                  />
+                  <Label
+                    htmlFor={`${getControlItem.name}-${optionItem.id}`}
+                    className="text-sm font-medium leading-none cursor-pointer"
                   >
-                    <Checkbox
-                      id={`${getControlItem.name}-${optionItem.id}`}
-                      checked={currentCheckboxValues.includes(optionItem.id)}
-                      onCheckedChange={() => {}} // Controlled by div onClick for better hit area
-                    />
-                    <Label
-                      htmlFor={`${getControlItem.name}-${optionItem.id}`}
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      {optionItem.label}
-                    </Label>
-                  </div>
-                ))
+                    {optionItem.label}
+                  </Label>
+                </div>
+              ))
               : null}
           </div>
         );
@@ -176,7 +176,7 @@ function CommonForm({
                     .split(",")
                     .map((v) => v.trim())
                     .filter((v) => v !== "" && !tags.includes(v));
-                  
+
                   if (newTags.length > 0) {
                     setFormData({
                       ...formData,

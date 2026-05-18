@@ -7,7 +7,24 @@ const initialState = {
   selectedItems: [],
   checkoutItems: [],
   payingItems: [],
+  buyNowItems: [],
+  buyNowCartData: null,
 };
+
+export const fetchPreviewCartItems = createAsyncThunk(
+  "cart/fetchPreviewCartItems",
+  async ({ userId, items, voucherCode }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/shop/cart/preview",
+        { userId, items, voucherCode }
+      );
+      return response.data;
+    } catch (e) {
+      return rejectWithValue(e.response.data);
+    }
+  }
+);
 
 export const addToCart = createAsyncThunk(
   "cart/addToCart",
@@ -145,6 +162,30 @@ const shoppingCartSlice = createSlice({
       state.checkoutItems = [];
       state.payingItems = [];
     },
+    setBuyNowItems: (state, action) => {
+      state.buyNowItems = action.payload;
+    },
+    clearBuyNowItems: (state) => {
+      state.buyNowItems = [];
+      state.buyNowCartData = null;
+    },
+    updateBuyNowQuantity: (state, action) => {
+      const { productId, size, color, quantity } = action.payload;
+      if (!state.buyNowItems) return;
+      const index = state.buyNowItems.findIndex(item => 
+        item.productId === productId && item.size === size && item.color === color
+      );
+      if (index > -1) {
+         state.buyNowItems[index].quantity = quantity;
+      }
+    },
+    removeBuyNowItem: (state, action) => {
+      const { productId, size, color } = action.payload;
+      if (!state.buyNowItems) return;
+      state.buyNowItems = state.buyNowItems.filter(item => 
+        !(item.productId === productId && item.size === size && item.color === color)
+      );
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -191,6 +232,16 @@ const shoppingCartSlice = createSlice({
       .addCase(deleteCartItem.rejected, (state) => {
         state.isLoading = false;
         // Don't clear cartItems on rejection
+      })
+      .addCase(fetchPreviewCartItems.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchPreviewCartItems.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.buyNowCartData = action.payload.data;
+      })
+      .addCase(fetchPreviewCartItems.rejected, (state) => {
+        state.isLoading = false;
       });
   },
 });
@@ -198,7 +249,8 @@ const shoppingCartSlice = createSlice({
 export const { 
   clearCart, toggleSelectItem, selectAllItems, clearSelectedItems, 
   setCheckoutItems, toggleCheckoutSelectItem, clearCheckoutItems,
-  togglePayingItem, selectAllPayingItems 
+  togglePayingItem, selectAllPayingItems,
+  setBuyNowItems, clearBuyNowItems, updateBuyNowQuantity, removeBuyNowItem
 } = shoppingCartSlice.actions;
 
 export default shoppingCartSlice.reducer;

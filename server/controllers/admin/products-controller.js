@@ -214,6 +214,7 @@ const editProduct = async (req, res) => {
       averageReview,
       variants,
       isBestSeller,
+      isSaleItem,
     } = req.body;
 
     let findProduct = await Product.findById(id);

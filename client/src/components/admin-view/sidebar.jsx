@@ -69,12 +69,6 @@ const adminSidebarMenuItems = [
     path: "/admin/bestsellers",
     icon: <Star />,
   },
-  {
-    id: "sales",
-    label: "Hot Sale Products",
-    path: "/admin/sales",
-    icon: <Tag />,
-  },
 ];
 
 function MenuItems({ setOpen }) {

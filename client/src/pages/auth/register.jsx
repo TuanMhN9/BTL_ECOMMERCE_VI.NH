@@ -11,7 +11,7 @@ const initialState = {
 };
 
 const EMAIL_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9.]*[a-zA-Z0-9])?@gmail\.com$/;
-const USERNAME_REGEX = /^[a-zA-ZÀ-ỹ\s_]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9À-ỹ\s_.-]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 function validateField(name, value) {
@@ -23,7 +23,7 @@ function validateField(name, value) {
       errors.push("Vui lòng nhập tên người dùng");
     } else {
       if (!USERNAME_REGEX.test(v)) {
-        errors.push("Tên người dùng chỉ được chứa chữ cái, không được có ký tự đặc biệt hoặc số");
+        errors.push("Tên người dùng chỉ được chứa chữ cái, số, khoảng trắng, gạch dưới, gạch ngang, dấu chấm");
       }
       if (v.length < 3) errors.push("Tên người dùng phải có ít nhất 3 ký tự");
       if (v.length > 30) errors.push("Tên người dùng không được quá 30 ký tự");

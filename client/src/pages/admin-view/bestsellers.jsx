@@ -155,10 +155,15 @@ function AdminBestsellers() {
                       </TableCell>
                       <TableCell>{product.totalSold || 0}</TableCell>
                       <TableCell className="text-right">
-                        <Checkbox
-                          checked={product.isBestSeller}
-                          onCheckedChange={() => handleToggleBestseller(product._id, product.isBestSeller)}
-                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleBestseller(product._id, product.isBestSeller)}
+                          className="text-yellow-500 hover:text-gray-400 hover:bg-gray-100"
+                          title="Xóa khỏi Bestseller"
+                        >
+                          <Star className="w-5 h-5 fill-yellow-500 transition-colors" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -217,9 +222,10 @@ function AdminBestsellers() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleToggleBestseller(product._id, product.isBestSeller)}
-                          className="text-gray-400 hover:text-yellow-500"
+                          className="text-gray-400 hover:text-yellow-500 hover:bg-yellow-50"
+                          title="Thêm vào Bestseller"
                         >
-                          <StarOff className="w-5 h-5" />
+                          <Star className="w-5 h-5 transition-colors" />
                         </Button>
                       </TableCell>
                     </TableRow>

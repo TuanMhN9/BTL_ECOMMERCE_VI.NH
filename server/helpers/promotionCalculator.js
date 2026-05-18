@@ -1,6 +1,7 @@
 const Promotion = require("../models/Promotion");
 const Voucher = require("../models/Voucher");
 const Order = require("../models/Order");
+const Lookbook = require("../models/Lookbook");
 
 /**
  * Áp dụng điều kiện và tính toán giảm giá cho giỏ hàng
@@ -24,6 +25,58 @@ const calculateCartDiscounts = async (cartItems, user, voucherCode = null) => {
   let freeShipping = false;
 
   const now = new Date();
+
+  // --- THÊM LOGIC LOOKBOOK BUNDLE ---
+  // Lấy danh sách lookbooks
+  const lookbooks = await Lookbook.find({}).select("products title");
+  const cartProductIds = cartItems.map(item => item.productId._id?.toString() || item.productId.toString());
+  
+  for (const lb of lookbooks) {
+    if (lb.products && lb.products.length > 0) {
+      const isCompleteBundle = lb.products.every(pid => cartProductIds.includes(pid.toString()));
+      if (isCompleteBundle) {
+        // Kiểm tra tất cả sản phẩm của lookbook trong giỏ hàng có số lượng == 1
+        const lbCartItems = cartItems.filter(item => 
+          lb.products.some(pid => pid.toString() === (item.productId._id?.toString() || item.productId.toString()))
+        );
+        const isAllQuantityOne = lbCartItems.every(item => item.quantity === 1);
+
+        if (isAllQuantityOne) {
+          let bundleDiscount = 0;
+        let productBreakdown = [];
+        
+        cartItems.forEach(item => {
+          const itemProdId = item.productId._id?.toString() || item.productId.toString();
+          if (lb.products.some(pid => pid.toString() === itemProdId)) {
+            const price = item.salePrice > 0 ? item.salePrice : item.price;
+            const itemDiscount = price * item.quantity * 0.05; // 5% discount
+            bundleDiscount += itemDiscount;
+            productBreakdown.push({
+              productId: itemProdId,
+              size: item.size,
+              color: item.color,
+              discountAmount: itemDiscount
+            });
+          }
+        });
+
+        if (bundleDiscount > 0) {
+           discountTotal += bundleDiscount;
+           appliedPromotions.push({
+             promotionId: lb._id,
+             name: "Lookbook Bundle Discount (5%)",
+             discountAmount: bundleDiscount,
+             voucherCode: null,
+             productBreakdown
+           });
+           // Nếu muốn áp dụng nhiều lookbook thì bỏ break, nhưng thông thường khách chỉ mua 1 lookbook
+           // Để an toàn, áp dụng cho tất cả lookbook đủ đk thì không break.
+        }
+        }
+      }
+    }
+  }
+  // ----------------------------------
 
   // 1. Lấy khách các Automatic Promotions đang active
   // Chỉ áp dụng những mã có điều kiện giá trị đơn hàng hoặc số lượng (vì những mã không điều kiện đã được tính vào salePrice rồi)

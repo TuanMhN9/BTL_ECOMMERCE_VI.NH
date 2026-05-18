@@ -30,7 +30,7 @@ const getLookbookDetails = async (req, res) => {
     const lookbook = await Lookbook.findById(id).populate({
       path: "products",
       match: activeProductMatch,
-      select: "_id title image salePrice price isActive",
+      select: "_id title image salePrice price isActive variants",
     });
 
     if (!lookbook) {

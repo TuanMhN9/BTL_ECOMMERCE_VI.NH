@@ -446,9 +446,83 @@ const deleteCartItem = async (req, res) => {
   }
 };
 
+const previewCheckout = async (req, res) => {
+  try {
+    const { userId, items, voucherCode } = req.body;
+    if (!userId || !items || !items.length) {
+      return res.status(400).json({ success: false, message: "Invalid data!" });
+    }
+
+    const populateCartItems = [];
+    for (const item of items) {
+      const product = await Product.findById(item.productId).select("image title price salePrice category variants");
+      if (!product) continue;
+
+      let variant = null;
+      if (product.variants && product.variants.length > 0) {
+        variant = product.variants.find(v => v.size === item.size && v.color === item.color);
+      }
+
+      populateCartItems.push({
+        productId: product._id,
+        image: product.image,
+        title: product.title,
+        price: variant ? variant.price : product.price,
+        salePrice: variant ? variant.salePrice : product.salePrice,
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        category: product.category,
+      });
+    }
+
+    const user = await User.findById(userId);
+    let calculations = { subtotal: 0, discountTotal: 0, grandTotal: 0, appliedPromotions: [] };
+    let voucherError = null;
+
+    const productsToEnrich = populateCartItems.map(item => ({
+      _id: item.productId,
+      price: item.price,
+      salePrice: item.salePrice,
+      category: item.category
+    }));
+    const enrichedProducts = await enrichProductsWithAutomaticPromotions(productsToEnrich);
+    
+    populateCartItems.forEach((item, idx) => {
+      item.salePrice = enrichedProducts[idx].salePrice;
+    });
+
+    try {
+      if (populateCartItems.length > 0) {
+        calculations = await calculateCartDiscounts(populateCartItems, user, voucherCode);
+      }
+    } catch (calcError) {
+      voucherError = calcError.message;
+      try {
+         calculations = await calculateCartDiscounts(populateCartItems, user, null);
+      } catch(e) {}
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: "buy_now_cart",
+        userId,
+        items: populateCartItems,
+        calculations,
+        voucherError
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: "Error" });
+  }
+};
+
 module.exports = {
   addToCart,
   updateCartItemQty,
   deleteCartItem,
   fetchCartItems,
+  previewCheckout,
 };
