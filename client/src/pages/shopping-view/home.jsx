@@ -9,6 +9,7 @@ import ShoppingProductTile from "@/components/shopping-view/product-tile";
 import menBanner from "@/assets/login_banner_2.jpg";
 import womenBanner from "@/assets/banner_4.jpg";
 import HistoryImg from "@/assets/homephoto_history.avif";
+import { motion } from "framer-motion";
 
 const categoriesWithImage = [
   {
@@ -38,7 +39,18 @@ const SCROLL_LOCK_MS = 950;
 const SECTION_ANIMATION_CLASS =
   "transition-transform duration-700 ease-in-out will-change-transform";
 
-import { motion } from "framer-motion";
+/** Exclude full-page hero section keys while user types in inputs (e.g. shop chat composer). */
+function isTypingInFormField(active = document.activeElement) {
+  if (!active || !active.tagName) return false;
+  const tag = active.tagName.toUpperCase();
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag !== "INPUT") return Boolean(active.isContentEditable);
+  const t = String(active.type || "text").toLowerCase();
+  return (
+    ["text", "search", "email", "url", "tel", "password", "number"].includes(t) ||
+    t === ""
+  );
+}
 
 function FlashSaleSlider({ products }) {
   const containerRef = useRef(null);
@@ -191,6 +203,8 @@ function ShoppingHome() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (scrollLockRef.current) return;
+      if (e.defaultPrevented) return;
+      if (isTypingInFormField()) return;
 
       let direction = 0;
       if (e.key === "ArrowDown" || e.key === "PageDown" || e.key === " ") {
