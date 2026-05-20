@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { getApiUrl } from "@/config/api";
 import {
   clearChatbotMessages,
@@ -25,9 +26,71 @@ function isGenericTypingElement(el) {
   return Boolean(el.isContentEditable);
 }
 
+function formatProductPrice(product) {
+  const salePrice = Number(product?.salePrice) || 0;
+  const price = Number(product?.price) || 0;
+
+  if (salePrice > 0 && salePrice < price) {
+    return { displayPrice: salePrice, originalPrice: price, onSale: true };
+  }
+
+  return { displayPrice: price, originalPrice: null, onSale: false };
+}
+
+function ChatbotProductCard({ product, onSelect }) {
+  const { displayPrice, originalPrice, onSale } = formatProductPrice(product);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(product._id)}
+      className="w-full text-left bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-400 hover:shadow-sm transition-all group"
+    >
+      <div className="relative aspect-[4/5] bg-[#f5f5f0] overflow-hidden">
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[11px] uppercase tracking-[0.15em] text-gray-400">
+            No image
+          </div>
+        )}
+        {onSale && (
+          <span className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 uppercase tracking-tighter">
+            Sale
+          </span>
+        )}
+      </div>
+      <div className="p-3">
+        <p className="text-[11px] uppercase tracking-[0.12em] text-gray-900 line-clamp-2 leading-snug">
+          {product.title}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-[11px] tracking-[0.1em] text-gray-900 font-medium">
+            ${displayPrice}
+          </span>
+          {onSale && (
+            <span className="text-[10px] tracking-[0.1em] text-gray-400 line-through">
+              ${originalPrice}
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-[10px] uppercase tracking-[0.15em] text-gray-500 group-hover:text-gray-900 transition-colors">
+          Xem chi tiết →
+        </p>
+      </div>
+    </button>
+  );
+}
+
 function Chatbot() {
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const userId = user?._id ?? null;
+  const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState(() => loadChatbotMessages(userId));
@@ -213,6 +276,9 @@ function Chatbot() {
         {
           role: "assistant",
           content: data.data.reply,
+          products: Array.isArray(data.data.recommendedProducts)
+            ? data.data.recommendedProducts
+            : [],
         },
       ]);
     } catch (error) {
@@ -232,6 +298,11 @@ function Chatbot() {
       setIsLoading(false);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
+  }
+
+  function handleProductSelect(productId) {
+    setIsOpen(false);
+    navigate(`/shop/product/${productId}`);
   }
 
   function handleKeyDown(e) {
@@ -285,13 +356,37 @@ function Chatbot() {
                 }`}
               >
                 <div
-                  className={`max-w-[85%] px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
+                  className={`${
                     msg.role === "user"
-                      ? "bg-black text-white rounded-t-xl rounded-bl-xl"
-                      : "bg-gray-100 text-gray-800 rounded-t-xl rounded-br-xl"
+                      ? "max-w-[85%] flex justify-end"
+                      : Array.isArray(msg.products) && msg.products.length > 0
+                        ? "w-full max-w-full"
+                        : "max-w-[85%]"
                   }`}
                 >
-                  {msg.content}
+                  <div
+                    className={`px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
+                      msg.role === "user"
+                        ? "bg-black text-white rounded-t-xl rounded-bl-xl"
+                        : "bg-gray-100 text-gray-800 rounded-t-xl rounded-br-xl"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+
+                  {msg.role === "assistant" &&
+                    Array.isArray(msg.products) &&
+                    msg.products.length > 0 && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {msg.products.map((product) => (
+                          <ChatbotProductCard
+                            key={product._id}
+                            product={product}
+                            onSelect={handleProductSelect}
+                          />
+                        ))}
+                      </div>
+                    )}
                 </div>
               </div>
             ))}

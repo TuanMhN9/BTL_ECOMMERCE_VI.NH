@@ -6,7 +6,7 @@ const {
 } = require("../../helpers/promotionCalculator");
 
 const PRODUCT_SELECT =
-  "title category brand price salePrice totalStock sizes colors isSaleItem variants description";
+  "title image images category brand price salePrice totalStock sizes colors isSaleItem variants description";
 
 const SYSTEM_PROMPT = `Bạn là nhân viên tư vấn thời trang cao cấp của Saint Laurent.
 Nhiệm vụ: hỗ trợ khách hàng tìm sản phẩm, tư vấn phối đồ, trả lời câu hỏi về tồn kho và sản phẩm đang sale.
@@ -20,7 +20,8 @@ Quy tắc:
 - Định dạng giá theo USD (ví dụ: $120).
 - Nếu không có sản phẩm phù hợp trong dữ liệu, nói rõ và gợi ý danh mục khác hoặc từ khóa tìm kiếm.
 - Chỉ trả lời trong phạm vi cửa hàng thời trang, từ chối lịch sự các câu hỏi ngoài lề.
-- Không sử dụng markdown phức tạp, chỉ dùng text thuần và xuống dòng.`;
+- Không sử dụng markdown phức tạp, chỉ dùng text thuần và xuống dòng.
+- Khi gợi ý sản phẩm, giới thiệu ngắn gọn trong text; thẻ sản phẩm (ảnh + link) sẽ hiển thị riêng bên dưới câu trả lời.`;
 
 const CATEGORY_ALIASES = {
   women: ["nữ", "women", "woman", "váy", "đầm", "áo nữ"],
@@ -46,7 +47,46 @@ function detectIntents(message) {
       /có gì|co gi|còn gì|con gi|bán gì|ban gi|mặt hàng|mat hang|sản phẩm nào|san pham nao|danh mục|danh muc|catalog|hàng gì|hang gi|shop có|shop co|store có|store co/.test(
         text
       ),
+    recommend:
+      /gợi ý|goi y|đề xuất|de xuat|tư vấn|tu van|phối đồ|phoi do|nên mua|nen mua|mua gì|mua gi|chọn giúp|chon giup|recommend|suggest|phù hợp|phu hop|tìm giúp|tim giup|tìm cho|tim cho|show me|looking for|help me find|muốn mua|muon mua/.test(
+        text
+      ),
   };
+}
+
+function shouldAttachProductCards(message, intents, products, category, keywords) {
+  if (!products.length) return false;
+
+  return (
+    intents.recommend ||
+    intents.sale ||
+    intents.stock ||
+    intents.catalog ||
+    Boolean(category) ||
+    keywords.length > 0
+  );
+}
+
+function getProductImage(product) {
+  if (product.image) return product.image;
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    const first = product.images[0];
+    return typeof first === "string" ? first : first?.url || first?.imageUrl || "";
+  }
+  return "";
+}
+
+function formatRecommendedProductsForClient(products, limit = 6) {
+  return products.slice(0, limit).map((product) => ({
+    _id: String(product._id),
+    title: product.title || "Sản phẩm",
+    image: getProductImage(product),
+    category: product.category || "",
+    price: Number(product.price) || 0,
+    salePrice: Number(product.salePrice) || 0,
+    isSaleItem: Boolean(product.isSaleItem),
+    totalStock: Number(product.totalStock) || 0,
+  }));
 }
 
 function detectCategory(message) {
@@ -357,7 +397,7 @@ async function buildProductContext(message) {
       intents.sale || intents.catalog
         ? getSaleProductsForChat(category, 10)
         : Promise.resolve([]),
-      intents.stock || intents.catalog
+      intents.stock || intents.catalog || intents.recommend
         ? getInStockProductsForChat(category, 10)
         : Promise.resolve([]),
     ]);
@@ -367,7 +407,7 @@ async function buildProductContext(message) {
   if (products.length === 0) {
     if (intents.sale) {
       products = await getSaleProductsForChat(category, 10);
-    } else if (intents.stock || intents.catalog) {
+    } else if (intents.stock || intents.catalog || intents.recommend) {
       products = await getInStockProductsForChat(category, 10);
     } else if (keywords.length === 0) {
       products = await getInStockProductsForChat(category, 8);
@@ -388,15 +428,31 @@ async function buildProductContext(message) {
       "Ghi chú: Khách đang hỏi về sản phẩm SALE. Ưu tiên giới thiệu các mục có giá sale hoặc nhãn SALE."
     );
   }
+  if (intents.recommend) {
+    contextSections.push(
+      "Ghi chú: Khách đang yêu cầu GỢI Ý sản phẩm. Giới thiệu ngắn gọn 2-4 sản phẩm phù hợp nhất từ danh sách; ảnh và link chi tiết sẽ hiển thị tự động bên dưới."
+    );
+  }
   if (intents.stock) {
     contextSections.push(
       "Ghi chú: Khách đang hỏi về TỒN KHO. Trả lời rõ còn/hết và size/màu còn hàng nếu có."
     );
   }
 
+  const attachProductCards = shouldAttachProductCards(
+    message,
+    intents,
+    enrichedProducts,
+    category,
+    keywords
+  );
+
   return {
     productContext: contextSections.join("\n\n"),
     productsFound: enrichedProducts.length,
+    recommendedProducts: attachProductCards
+      ? formatRecommendedProductsForClient(enrichedProducts)
+      : [],
   };
 }
 
@@ -500,9 +556,8 @@ const handleChat = async (req, res) => {
       });
     }
 
-    const { productContext, productsFound } = await buildProductContext(
-      message.trim()
-    );
+    const { productContext, productsFound, recommendedProducts } =
+      await buildProductContext(message.trim());
 
     const { reply, model } = await generateChatReply({
       ai,
@@ -516,6 +571,7 @@ const handleChat = async (req, res) => {
       data: {
         reply,
         productsFound,
+        recommendedProducts,
         model,
       },
     });

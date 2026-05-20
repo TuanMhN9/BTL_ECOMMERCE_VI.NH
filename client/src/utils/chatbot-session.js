@@ -13,13 +13,29 @@ function getStorageKey(userId) {
   return userId ? `${STORAGE_PREFIX}${userId}` : `${STORAGE_PREFIX}guest`;
 }
 
+function isValidRecommendedProduct(product) {
+  return (
+    product &&
+    typeof product === "object" &&
+    typeof product._id === "string" &&
+    product._id.length > 0 &&
+    typeof product.title === "string"
+  );
+}
+
 function isValidMessage(message) {
+  const hasValidProducts =
+    message.products === undefined ||
+    (Array.isArray(message.products) &&
+      message.products.every(isValidRecommendedProduct));
+
   return (
     message &&
     typeof message === "object" &&
     (message.role === "user" || message.role === "assistant") &&
     typeof message.content === "string" &&
-    message.content.trim().length > 0
+    message.content.trim().length > 0 &&
+    hasValidProducts
   );
 }
 
