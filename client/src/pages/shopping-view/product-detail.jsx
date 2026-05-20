@@ -2,7 +2,7 @@ import { StarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart, fetchCartItems } from "@/store/shop/cart-slice";
+import { addToCart, fetchCartItems, setCheckoutItems } from "@/store/shop/cart-slice";
 import { useToast } from "@/components/ui/use-toast";
 import {
   fetchProductDetails,
@@ -148,24 +148,23 @@ function ProductDetailPage() {
       ? reviews.reduce((sum, r) => sum + r.reviewValue, 0) / reviews.length
       : 0;
 
-  function handleAddToCart() {
+  function validateSelection() {
     const isSizeMissing =
       productDetails?.sizes?.length > 0 && !selectedSize;
     const isColorMissing =
       productDetails?.colors?.length > 0 && !selectedColor;
 
     if (isSizeMissing || isColorMissing) {
-      toast({
-        title: `Please select ${
+      return {
+        valid: false,
+        message: `Please select ${
           isSizeMissing && isColorMissing
             ? "size and color"
             : isSizeMissing
             ? "a size"
             : "a color"
         }`,
-        variant: "destructive",
-      });
-      return;
+      };
     }
 
     const targetStock = currentVariant
@@ -173,8 +172,7 @@ function ProductDetailPage() {
       : productDetails?.totalStock;
 
     if (targetStock <= 0) {
-      toast({ title: "This variant is out of stock", variant: "destructive" });
-      return;
+      return { valid: false, message: "This variant is out of stock" };
     }
 
     const getCartItems = cartItems?.items || [];
@@ -184,9 +182,22 @@ function ProductDetailPage() {
         item.size === selectedSize &&
         item.color === selectedColor
     );
+
     if (existingItem && existingItem.quantity + 1 > targetStock) {
+      return {
+        valid: false,
+        message: `Only ${targetStock} available for this variant`,
+      };
+    }
+
+    return { valid: true };
+  }
+
+  function handleAddToCart() {
+    const validation = validateSelection();
+    if (!validation.valid) {
       toast({
-        title: `Only ${targetStock} available for this variant`,
+        title: validation.message,
         variant: "destructive",
       });
       return;
@@ -210,6 +221,50 @@ function ProductDetailPage() {
           variant: "destructive",
         });
       }
+    });
+  }
+
+  function handleBuyNow() {
+    if (!user?.id) {
+      toast({
+        title: "Please login to continue",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+
+    const validation = validateSelection();
+    if (!validation.valid) {
+      toast({
+        title: validation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const checkoutItemKey = `${productDetails._id}-${selectedSize || ""}-${selectedColor || ""}`;
+
+    dispatch(
+      addToCart({
+        userId: user.id,
+        productId: productDetails._id,
+        quantity: 1,
+        size: selectedSize,
+        color: selectedColor,
+      })
+    ).then(async (data) => {
+      if (!data?.payload?.success) {
+        toast({
+          title: data?.payload?.message || "Not available",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await dispatch(fetchCartItems({ userId: user.id }));
+      dispatch(setCheckoutItems([checkoutItemKey]));
+      navigate("/shop/checkout");
     });
   }
 
@@ -483,12 +538,20 @@ function ProductDetailPage() {
                 Out of Stock
               </button>
             ) : (
-              <button
-                onClick={handleAddToCart}
-                className="w-full py-4 bg-black text-white text-[11px] font-semibold uppercase tracking-[0.3em] hover:bg-gray-800 transition-all duration-300 border-none cursor-pointer"
-              >
-                Add to Bag
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleBuyNow}
+                  className="w-full py-4 bg-black text-white text-[11px] font-semibold uppercase tracking-[0.3em] hover:bg-gray-800 transition-all duration-300 border-none cursor-pointer"
+                >
+                  Buy Now
+                </button>
+                <button
+                  onClick={handleAddToCart}
+                  className="w-full py-4 bg-white text-black text-[11px] font-semibold uppercase tracking-[0.3em] border border-black hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                >
+                  Add to Bag
+                </button>
+              </div>
             )}
 
             {/* Links */}

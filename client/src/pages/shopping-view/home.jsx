@@ -1,9 +1,9 @@
-import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Loader2, Tag } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getFeatureImages, setHeaderTextColor } from "@/store/common-slice";
-import { fetchBestSellingProducts, fetchSaleProducts } from "@/store/shop/products-slice";
+import { fetchBestSellingProducts } from "@/store/shop/products-slice";
 import ShoppingFooter from "@/components/shopping-view/footer";
 import ShoppingProductTile from "@/components/shopping-view/product-tile";
 import menBanner from "@/assets/login_banner_2.jpg";
@@ -52,60 +52,6 @@ function isTypingInFormField(active = document.activeElement) {
   );
 }
 
-function FlashSaleSlider({ products }) {
-  const containerRef = useRef(null);
-
-  if (!products || products.length === 0) return null;
-
-  const scrollManual = (direction) => {
-    if (containerRef.current) {
-      // Calculate scroll amount for exactly 2 products
-      const isMobile = window.innerWidth < 768;
-      const productWidth = isMobile ? 180 : 280;
-      const gap = isMobile ? 16 : 32;
-      const scrollAmount = (productWidth + gap) * 2;
-      
-      containerRef.current.scrollBy({
-        left: direction * scrollAmount,
-        behavior: "smooth"
-      });
-    }
-  };
-
-  return (
-    <div className="w-full relative group/slider select-none">
-      {/* Navigation Buttons */}
-      <button 
-        onClick={() => scrollManual(-1)}
-        className="absolute left-0 top-[40%] -translate-y-1/2 z-30 p-2 md:p-3 bg-white/90 rounded-full shadow-lg text-black hover:bg-black hover:text-white transition-all cursor-pointer -translate-x-1/2"
-      >
-        <ChevronLeft className="w-4 h-4 md:w-5 h-5" />
-      </button>
-      
-      <button 
-        onClick={() => scrollManual(1)}
-        className="absolute right-0 top-[40%] -translate-y-1/2 z-30 p-2 md:p-3 bg-white/90 rounded-full shadow-lg text-black hover:bg-black hover:text-white transition-all cursor-pointer translate-x-1/2"
-      >
-        <ChevronRight className="w-4 h-4 md:w-5 h-5" />
-      </button>
-
-      <div 
-        ref={containerRef}
-        className="flex w-full gap-x-4 md:gap-x-8 overflow-x-hidden scroll-smooth py-4 mt-4"
-      >
-        {products.map((product) => (
-          <div 
-            key={product?._id} 
-            className="w-[180px] md:w-[280px] flex-shrink-0"
-          >
-            <ShoppingProductTile product={product} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ShoppingHome() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -116,7 +62,7 @@ function ShoppingHome() {
   const activeFeatureImageList = featureImageList?.filter(
     (item) => item.enabled !== false
   );
-  const { bestSellingProducts, saleProducts, isLoading: isProductsLoading } = useSelector(
+  const { bestSellingProducts, isLoading: isProductsLoading } = useSelector(
     (state) => state.shopProducts
   );
 
@@ -125,16 +71,12 @@ function ShoppingHome() {
 
   const heroBanners = activeFeatureImageList?.length > 0 ? activeFeatureImageList : [{ _id: "default-hero", image: womenBanner }];
   
-  // Define dynamic sections based on data availability
-  const hasSales = saleProducts?.length > 0;
-  
   const sections = useMemo(() => [
     ...heroBanners.map((banner, idx) => ({ type: "hero", data: banner, id: banner._id || `hero-${idx}` })),
-    ...(hasSales ? [{ type: "sale", id: "sale-section" }] : []),
     { type: "bestseller", id: "bestseller-section" },
     { type: "history", id: "history-section" },
     { type: "footer", id: "footer-section" },
-  ], [heroBanners, hasSales]);
+  ], [heroBanners]);
 
   const maxIndex = sections.length - 1;
 
@@ -172,7 +114,6 @@ function ShoppingHome() {
 
   useEffect(() => {
     dispatch(getFeatureImages());
-    dispatch(fetchSaleProducts());
   }, [dispatch]);
 
   useEffect(() => {
@@ -306,31 +247,6 @@ function ShoppingHome() {
                   </motion.button>
                 </div>
               )}
-            </section>
-          )}
-
-          {section.type === "sale" && (
-            <section className="min-h-screen w-full overflow-hidden bg-white">
-              <div className="flex flex-col px-6 pt-12 pb-24 md:px-10">
-                <div className="mx-auto mb-4 flex w-full max-w-7xl flex-col items-center justify-center text-center">
-                  <div className="bg-red-600 p-2 rounded-lg mb-4">
-                     <Tag className="text-white h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2
-                      className="text-2xl md:text-3xl font-light uppercase tracking-[0.24em] text-red-600"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
-                    >
-                      Flash Deals
-                    </h2>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1 text-center">Limited time offers</p>
-                  </div>
-                </div>
-
-                <div className="mx-auto w-full max-w-7xl pb-10">
-                  <FlashSaleSlider products={saleProducts} />
-                </div>
-              </div>
             </section>
           )}
 

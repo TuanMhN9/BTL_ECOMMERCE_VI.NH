@@ -5,12 +5,13 @@ import { Dialog, DialogContent } from "../ui/dialog";
 import { Separator } from "../ui/separator";
 import { Input } from "../ui/input";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart, fetchCartItems } from "@/store/shop/cart-slice";
+import { addToCart, fetchCartItems, setCheckoutItems } from "@/store/shop/cart-slice";
 import { useToast } from "../ui/use-toast";
 import { setProductDetails } from "@/store/shop/products-slice";
 import { Label } from "../ui/label";
 import StarRatingComponent from "../common/star-rating";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { addReview, getReviews } from "@/store/shop/review-slice";
 import { checkProductPurchase } from "@/store/shop/order-slice";
 
@@ -20,6 +21,7 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { cartItems } = useSelector((state) => state.shopCart);
   const { reviews } = useSelector((state) => state.shopReview);
@@ -49,46 +51,49 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
       v.color === selectedColor
   );
 
-  function handleAddToCart(getCurrentProductId, getTotalStock) {
-    let getCartItems = cartItems.items || [];
-
+  function validateSelection(getCurrentProductId, getTotalStock) {
     const isSizeMissing = productDetails?.variants?.some(v => v.size) && selectedSize === "";
     const isColorMissing = productDetails?.variants?.some(v => v.color) && selectedColor === "";
 
     if (isSizeMissing || isColorMissing) {
-      toast({
-        title: `Please select ${isSizeMissing && isColorMissing ? "size and color" : isSizeMissing ? "size" : "color"}`,
-        variant: "destructive",
-      });
-      return;
+      return {
+        valid: false,
+        message: `Please select ${isSizeMissing && isColorMissing ? "size and color" : isSizeMissing ? "size" : "color"}`,
+      };
     }
 
     const targetStock = currentVariant ? currentVariant.stock : getTotalStock;
 
     if (targetStock <= 0) {
+      return { valid: false, message: "This variant is out of stock" };
+    }
+
+    const getCartItems = cartItems.items || [];
+    const existingItem = getCartItems.find(
+      (item) =>
+        item.productId === getCurrentProductId &&
+        item.size === selectedSize &&
+        item.color === selectedColor
+    );
+
+    if (existingItem && existingItem.quantity + 1 > targetStock) {
+      return {
+        valid: false,
+        message: `Only ${targetStock} quantity can be added for this item`,
+      };
+    }
+
+    return { valid: true };
+  }
+
+  function handleAddToCart(getCurrentProductId, getTotalStock) {
+    const validation = validateSelection(getCurrentProductId, getTotalStock);
+    if (!validation.valid) {
       toast({
-        title: "This variant is out of stock",
+        title: validation.message,
         variant: "destructive",
       });
       return;
-    }
-
-    if (getCartItems.length) {
-      const indexOfCurrentItem = getCartItems.findIndex(
-        (item) =>
-          item.productId === getCurrentProductId &&
-          item.size === selectedSize && item.color === selectedColor
-      );
-      if (indexOfCurrentItem > -1) {
-        const getQuantity = getCartItems[indexOfCurrentItem].quantity;
-        if (getQuantity + 1 > targetStock) {
-          toast({
-            title: `Only ${targetStock} quantity can be added for this item`,
-            variant: "destructive",
-          });
-          return;
-        }
-      }
     }
 
     dispatch(
@@ -111,6 +116,51 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
           variant: "destructive",
         });
       }
+    });
+  }
+
+  function handleBuyNow(getCurrentProductId, getTotalStock) {
+    if (!user?.id) {
+      toast({
+        title: "Please login to continue",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+
+    const validation = validateSelection(getCurrentProductId, getTotalStock);
+    if (!validation.valid) {
+      toast({
+        title: validation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const checkoutItemKey = `${getCurrentProductId}-${selectedSize || ""}-${selectedColor || ""}`;
+
+    dispatch(
+      addToCart({
+        userId: user.id,
+        productId: getCurrentProductId,
+        quantity: 1,
+        size: selectedSize,
+        color: selectedColor,
+      })
+    ).then(async (data) => {
+      if (!data?.payload?.success) {
+        toast({
+          title: data?.payload?.message || "Requested quantity is not available",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await dispatch(fetchCartItems({ userId: user.id }));
+      dispatch(setCheckoutItems([checkoutItemKey]));
+      handleDialogClose();
+      navigate("/shop/checkout");
     });
   }
 
@@ -297,6 +347,18 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
               <div className="flex flex-col gap-2">
                 <Button
                   className="w-full h-12 text-base font-semibold bg-black hover:bg-gray-800 shadow-none hover:shadow-none transition-all duration-300 rounded-none uppercase"
+                  onClick={() =>
+                    handleBuyNow(
+                      productDetails?._id,
+                      productDetails?.totalStock
+                    )
+                  }
+                >
+                  Buy Now
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-12 text-base font-semibold rounded-none uppercase"
                   onClick={() =>
                     handleAddToCart(
                       productDetails?._id,

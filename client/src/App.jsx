@@ -14,7 +14,6 @@ import AdminVideos from "./pages/admin-view/videos";
 import AdminPromotions from "./pages/admin-view/promotions";
 import AdminNewsletter from "./pages/admin-view/newsletter";
 import AdminBestsellers from "./pages/admin-view/bestsellers";
-import AdminSales from "./pages/admin-view/sales";
 import ShoppingLayout from "./components/shopping-view/layout";
 import NotFound from "./pages/not-found";
 import ShoppingHome from "./pages/shopping-view/home";
@@ -94,7 +93,6 @@ function App() {
           <Route path="promotions" element={<AdminPromotions />} />
           <Route path="newsletter" element={<AdminNewsletter />} />
           <Route path="bestsellers" element={<AdminBestsellers />} />
-          <Route path="sales" element={<AdminSales />} />
         </Route>
         <Route
           path="/shop"
