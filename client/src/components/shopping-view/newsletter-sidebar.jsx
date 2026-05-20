@@ -4,8 +4,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../u
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import axios from "axios";
+import { getApiUrl } from "@/config/api";
 import { useToast } from "../ui/use-toast";
-import { Gift, Mail, CheckCircle, XCircle } from "lucide-react";
+import { Gift, Mail, CheckCircle } from "lucide-react";
 
 function NewsletterSidebar() {
   const [email, setEmail] = useState("");
@@ -35,7 +36,7 @@ function NewsletterSidebar() {
     setIsLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/shop/newsletter/subscribe",
+        getApiUrl("/api/shop/newsletter/subscribe"),
         { email }
       );
 

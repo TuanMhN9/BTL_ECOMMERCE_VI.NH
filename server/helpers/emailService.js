@@ -4,13 +4,25 @@ const CLIENT_ORIGIN =
 const SERVER_URL =
   process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5000}`;
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASSWORD,
-  },
-});
+function assertMailConfig() {
+  if (!process.env.MAIL_USER || !process.env.MAIL_PASSWORD) {
+    throw new Error(
+      "MAIL_USER hoặc MAIL_PASSWORD chưa được cấu hình trên server"
+    );
+  }
+}
+
+function getTransporter() {
+  assertMailConfig();
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASSWORD,
+    },
+  });
+}
 
 const sendNewsletterVoucher = async (email, voucherCode) => {
   const mailOptions = {
@@ -33,7 +45,7 @@ const sendNewsletterVoucher = async (email, voucherCode) => {
     `,
   };
 
-  return transporter.sendMail(mailOptions);
+  return getTransporter().sendMail(mailOptions);
 };
 
 const sendVerificationEmail = async (email, token) => {
@@ -61,7 +73,11 @@ const sendVerificationEmail = async (email, token) => {
     `,
   };
 
-  return transporter.sendMail(mailOptions);
+  return getTransporter().sendMail(mailOptions);
 };
 
-module.exports = { sendNewsletterVoucher, sendVerificationEmail };
+module.exports = {
+  sendNewsletterVoucher,
+  sendVerificationEmail,
+  assertMailConfig,
+};
