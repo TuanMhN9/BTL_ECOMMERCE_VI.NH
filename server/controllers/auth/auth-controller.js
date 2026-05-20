@@ -4,6 +4,11 @@ const crypto = require("crypto");
 const User = require("../../models/User");
 const { sendVerificationEmail } = require("../../helpers/emailService");
 const { sendVerificationSMS } = require("../../helpers/smsService");
+const {
+  JWT_SECRET,
+  setAuthCookie,
+  clearAuthCookie,
+} = require("../../helpers/authCookie");
 const CLIENT_ORIGIN =
   process.env.CLIENT_URL || process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
@@ -182,12 +187,12 @@ const verifyLink = async (req, res) => {
         email: user.email,
         userName: user.userName,
       },
-      "CLIENT_SECRET_KEY",
+      JWT_SECRET,
       { expiresIn: "60m" }
     );
 
-    res.cookie("token", jwtToken, { httpOnly: true, secure: false })
-      .redirect(`${CLIENT_ORIGIN}/shop/home`);
+    setAuthCookie(res, jwtToken);
+    res.redirect(`${CLIENT_ORIGIN}/shop/home`);
   } catch (e) {
     console.log(e);
     res.redirect(`${CLIENT_ORIGIN}/auth/login?error=server_error`);
@@ -231,11 +236,12 @@ const verifyUser = async (req, res) => {
         email: user.email,
         userName: user.userName,
       },
-      "CLIENT_SECRET_KEY",
+      JWT_SECRET,
       { expiresIn: "60m" }
     );
 
-    res.cookie("token", jwtToken, { httpOnly: true, secure: false }).json({
+    setAuthCookie(res, jwtToken);
+    res.status(200).json({
       success: true,
       message: "Xác thực thành công",
       user: {
@@ -310,11 +316,12 @@ const loginUser = async (req, res) => {
         email: checkUser.email,
         userName: checkUser.userName,
       },
-      "CLIENT_SECRET_KEY",
+      JWT_SECRET,
       { expiresIn: "60m" }
     );
 
-    res.cookie("token", token, { httpOnly: true, secure: false }).json({
+    setAuthCookie(res, token);
+    res.status(200).json({
       success: true,
       message: "Đăng nhập thành công",
       user: {
@@ -337,7 +344,8 @@ const loginUser = async (req, res) => {
 //logout
 
 const logoutUser = (req, res) => {
-  res.clearCookie("token").json({
+  clearAuthCookie(res);
+  res.status(200).json({
     success: true,
     message: "Logged out successfully!",
   });
@@ -353,7 +361,7 @@ const authMiddleware = async (req, res, next) => {
     });
 
   try {
-    const decoded = jwt.verify(token, "CLIENT_SECRET_KEY");
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     // Fetch fresh user data from DB to ensure role is up to date
     const user = await User.findById(decoded.id);
@@ -635,13 +643,12 @@ const googleAuthCallback = (req, res) => {
         email: user.email,
         userName: user.userName,
       },
-      "CLIENT_SECRET_KEY",
+      JWT_SECRET,
       { expiresIn: "60m" }
     );
 
-    res
-      .cookie("token", token, { httpOnly: true, secure: false })
-      .redirect(`${CLIENT_ORIGIN}/shop/home`);
+    setAuthCookie(res, token);
+    res.redirect(`${CLIENT_ORIGIN}/shop/home`);
   } catch (error) {
     console.log(error);
     res.redirect(`${CLIENT_ORIGIN}/auth/login?error=server_error`);

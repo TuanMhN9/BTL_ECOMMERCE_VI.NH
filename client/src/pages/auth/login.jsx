@@ -2,7 +2,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { loginUser } from "@/store/auth-slice";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getApiUrl } from "@/config/api";
 
 const initialState = {
@@ -43,6 +43,7 @@ function AuthLogin() {
   const [fieldErrors, setFieldErrors] = useState({ email: [], password: [] });
   const [touched, setTouched] = useState({ email: false, password: false });
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   function handleChange(field, value) {
@@ -76,9 +77,21 @@ function AuthLogin() {
     dispatch(loginUser(formData)).then((data) => {
       if (data?.payload?.success) {
         toast({ title: data?.payload?.message });
-      } else {
-        toast({ title: data?.payload?.message, variant: "destructive" });
+        navigate(
+          data.payload.user?.role === "admin"
+            ? "/admin/dashboard"
+            : "/shop/home"
+        );
+        return;
       }
+
+      toast({
+        title:
+          data?.payload?.message ||
+          data?.error?.message ||
+          "Đăng nhập thất bại. Kiểm tra lại API backend.",
+        variant: "destructive",
+      });
     });
   }
 
